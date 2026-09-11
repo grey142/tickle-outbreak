@@ -2,9 +2,20 @@
 
 First-person **tickle-zombie survival FPS** vertical slice for **Godot 4.3+**.
 
+## Play now (browser)
+
+**[Play Tickle Outbreak in your browser](https://grey142.github.io/tickle-outbreak/)** — no Godot install required.
+
+- Hosted on **GitHub Pages** from the `docs/` Web export on `main`.
+- **First load** downloads a ~35MB WebAssembly build; subsequent visits are faster if the browser cache hits.
+- **Chrome** (desktop or Android) recommended; Firefox also works. Safari may be more limited.
+- Prefer **landscape** on phones/tablets. On-screen touch controls appear when a touchscreen is detected (or enable **Touch controls (desktop test)** on the main menu).
+- Browsers often require a **user gesture** before audio can play — tap/click the game once if sound is muted.
+- This Web build uses Godot’s **no-threads** export (no SharedArrayBuffer / COOP-COEP headers), so it works on stock GitHub Pages.
+
 Tongue-in-cheek tone, placeholder art (colored capsules + simple FPS arms). Not pornographic — soft feet/stomach lore appears only in item descriptions.
 
-## Open & run
+## Open & run (Godot editor)
 
 1. Install [Godot 4.3+](https://godotengine.org/download) (Standard build is fine).
 2. Launch Godot → **Import** → select `project.godot` in this folder.
@@ -97,6 +108,19 @@ scripts/
   hub/          Shop UI
   ui/           HUD, MobileControls, cinematic overlay, menus
 ```
+
+## Web export
+
+Static Web build is committed under `docs/` for GitHub Pages (`main` → `/docs`).
+
+```bash
+# Godot 4.3 + matching export templates required
+godot --headless --path . --export-release "Web" docs/index.html
+```
+
+Preset `export_presets.cfg`: platform **Web**, **`variant/thread_support=false`**, canvas resize policy **Adaptive** (2). Renderer for the project is **gl_compatibility** (required for WebGL).
+
+`docs/.gdignore` prevents the editor from importing the exported `.wasm` / `.pck` back into the project.
 
 ## Design notes
 

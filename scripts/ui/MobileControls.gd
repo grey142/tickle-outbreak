@@ -2,7 +2,7 @@ extends CanvasLayer
 class_name MobileControls
 ## Landscape phone touch controls: D-pad move, swipe look, right action cluster.
 
-signal visibility_changed(shown: bool)
+signal mobile_visibility_changed(shown: bool)
 
 @export var look_sensitivity: float = 0.004
 
@@ -64,7 +64,7 @@ func _set_shown(shown: bool) -> void:
 	if _root:
 		_root.visible = shown
 	_apply_player_mobile_mode()
-	visibility_changed.emit(shown)
+	mobile_visibility_changed.emit(shown)
 
 func _apply_player_mobile_mode() -> void:
 	if player == null or not is_instance_valid(player):

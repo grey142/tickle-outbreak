@@ -3,7 +3,7 @@
 *.translation
 .import/
 export.cfg
-export_presets.cfg
+# export_presets.cfg is tracked for reproducible Web / GitHub Pages export
 *.tmp
 
 # Imported assets cache
@@ -19,7 +19,7 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Builds
+# Builds (desktop/mobile); Web build is committed under docs/ for GitHub Pages
 build/
 builds/
 *.apk

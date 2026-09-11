@@ -30,10 +30,14 @@ func _ready() -> void:
 	if mobile and mobile.has_method("bind_player"):
 		mobile.bind_player(player)
 		if hud and hud.has_method("set_mobile_mode"):
-			var active := mobile.is_active() if mobile.has_method("is_active") else mobile.visible
+			var active: bool = false
+			if mobile.has_method("is_active"):
+				active = bool(mobile.is_active())
+			else:
+				active = bool(mobile.visible)
 			hud.set_mobile_mode(active)
-			if mobile.has_signal("visibility_changed"):
-				mobile.visibility_changed.connect(func(shown: bool):
+			if mobile.has_signal("mobile_visibility_changed"):
+				mobile.mobile_visibility_changed.connect(func(shown: bool):
 					if is_instance_valid(hud) and hud.has_method("set_mobile_mode"):
 						hud.set_mobile_mode(shown)
 				)
