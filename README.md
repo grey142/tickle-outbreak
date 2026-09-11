@@ -37,20 +37,27 @@ godot --path /path/to/tickle-outbreak
 On Android/iOS, or when a touchscreen is available, missions show an on-screen **landscape** control overlay (`MobileControls`):
 
 ```
-[ HUD top-left ]
-[Joystick L]                         [FIRE] [RELOAD]
-                                     [MELEE] [DASH] [JUMP]
-                                     [HP] [NRG] [AMMO] [ALC]
-[           look-drag zone (right ~half of screen)        ]
+[Tickle cinematic square]  [==== Health bar (top) ====]  [ammo/mission…]
+                           [==== Stamina (secondary) ==]
+
+[ D-pad: ▲ ▼ ◀ ▶ ]                              [DASH]
+  (hold; diagonals OK)                          [FIRE] [MELEE]
+                                                [RELOAD] [JUMP]
+                                                [HP][NRG][AMMO][ALC]
+
+[  swipe / drag empty game area to LOOK (never fires)  ]
 ```
 
 | Control | Behavior |
 |---------|----------|
-| Left virtual joystick | Movement vector (WASD equivalent) |
-| Drag on right half | Look / aim (does **not** fire) |
-| FIRE | Hold to shoot |
-| RELOAD / MELEE / DASH / JUMP | Tap |
-| HP / NRG / AMMO / ALC | Consumables 1–4 |
+| Bottom-left **D-pad** (Forward / Back / Left / Right) | Hold a button to move; hold two for diagonals (not a virtual joystick) |
+| Press + drag on empty / non-button area | Look / aim (does **not** fire) |
+| **FIRE** / **MELEE** (right cluster) | Hold FIRE to shoot; MELEE tap/hold |
+| **DASH** (stacked above fire/melee) | Tap |
+| **RELOAD** / **JUMP** (smaller, near cluster) | Tap |
+| HP / NRG / AMMO / ALC | Compact consumables strip |
+| Top health (+ stamina) | Primary bars; leave room for cinematic |
+| Top-left **tickle cinematic** square | Stacked tickler silhouettes (1–5) when tickling |
 
 Display defaults: `sensor_landscape` orientation, stretch `canvas_items` + `expand` aspect so phones fill the screen while desktop stays usable.
 
@@ -58,7 +65,7 @@ Display defaults: `sensor_landscape` orientation, stretch `canvas_items` + `expa
 
 1. **Main Menu** → check **Touch controls (desktop test)** before starting a run, **or**
 2. In a running mission press **Esc** while touch UI is forced to turn it back off, **or**
-3. In the Godot editor: **Project → Project Settings → Parse Options / Input Devices** enable **Emulate Touch From Mouse** (Editor Settings → General → Pointing also has “Emulate Touch From Mouse”) so mouse clicks become `InputEventScreenTouch` / `ScreenDrag`. With the main-menu toggle on, mouse drag on the stick / look zone also works without that setting.
+3. In the Godot editor: **Project → Project Settings → Parse Options / Input Devices** enable **Emulate Touch From Mouse** (Editor Settings → General → Pointing also has “Emulate Touch From Mouse”) so mouse clicks become `InputEventScreenTouch` / `ScreenDrag`. With the main-menu toggle on, mouse drag on the D-pad / look zone also works without that setting.
 4. Or set `GameState.force_mobile_controls = true` from the debugger.
 
 Touch look sensitivity default: `0.004` (`data/player_stats.json` → `touch_look_sensitivity`). Mouse sensitivity remains `0.0025`.

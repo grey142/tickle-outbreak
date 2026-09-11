@@ -1,28 +1,30 @@
 extends CanvasLayer
 class_name MobileControls
-## Landscape phone touch controls: left joystick, right look-drag, action buttons.
+## Landscape phone touch controls: D-pad move, swipe look, right action cluster.
 
 signal visibility_changed(shown: bool)
 
 @export var look_sensitivity: float = 0.004
-@export var joystick_radius: float = 72.0
-@export var joystick_deadzone: float = 0.15
 
 var player: PlayerController
 var _shown: bool = false
 
 var _root: Control
-var _joy_base: Control
-var _joy_knob: Control
 var _look_zone: Control
-var _btn_fire: Button
 var _hint: Label
 
-var _joy_touch_idx: int = -1
-var _joy_center: Vector2 = Vector2.ZERO
 var _look_touch_idx: int = -1
-var _look_last_pos: Vector2 = Vector2.ZERO
+var _fwd_held: bool = false
+var _back_held: bool = false
+var _left_held: bool = false
+var _right_held: bool = false
 var _touch_move: Vector2 = Vector2.ZERO
+
+const DPAD_BTN := Vector2(72, 72)
+const ACTION_BIG := Vector2(108, 78)
+const ACTION_MED := Vector2(96, 64)
+const ACTION_SM := Vector2(72, 48)
+const CONSUMABLE := Vector2(56, 42)
 
 func _ready() -> void:
 	layer = 5
@@ -31,7 +33,6 @@ func _ready() -> void:
 		look_sensitivity = float(DataManager.player_stats.get("touch_look_sensitivity", look_sensitivity))
 	_build_ui()
 	_refresh_visibility()
-	# Re-check if GameState toggles force flag at runtime
 	set_process(true)
 
 func bind_player(p: PlayerController) -> void:
@@ -71,6 +72,10 @@ func _apply_player_mobile_mode() -> void:
 	player.set_mobile_controls_active(_shown)
 	if not _shown:
 		_touch_move = Vector2.ZERO
+		_fwd_held = false
+		_back_held = false
+		_left_held = false
+		_right_held = false
 		player.set_touch_move(Vector2.ZERO)
 		player.set_touch_firing(false)
 		_release_all_actions()
@@ -82,14 +87,12 @@ func _build_ui() -> void:
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_root)
 
-	# Safe-area margins via nested margin
 	var margin := MarginContainer.new()
 	margin.name = "SafeMargin"
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var sa := DisplayServer.get_display_safe_area()
 	var win := DisplayServer.window_get_size()
-	# Approximate safe insets relative to window; fall back to fixed padding
 	var pad_l := 24
 	var pad_r := 24
 	var pad_b := 20
@@ -112,54 +115,141 @@ func _build_ui() -> void:
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	margin.add_child(fill)
 
-	# Right-half look zone (behind buttons so buttons receive clicks first)
-	_look_zone = Control.new()
+	# Full-screen look zone behind all buttons — press+drag on empty area looks; does not fire.
+	_look_zone = ColorRect.new()
 	_look_zone.name = "LookZone"
-	_look_zone.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_look_zone.anchor_left = 0.42
-	_look_zone.anchor_right = 1.0
-	_look_zone.anchor_top = 0.0
-	_look_zone.anchor_bottom = 1.0
-	_look_zone.offset_left = 0
-	_look_zone.offset_right = 0
-	_look_zone.offset_top = 0
-	_look_zone.offset_bottom = 0
+	_look_zone.color = Color(0, 0, 0, 0)
+	_look_zone.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_look_zone.mouse_filter = Control.MOUSE_FILTER_STOP
 	_look_zone.gui_input.connect(_on_look_gui_input)
 	fill.add_child(_look_zone)
 
-	# Joystick (bottom-left)
-	_joy_base = Control.new()
-	_joy_base.name = "Joystick"
-	_joy_base.custom_minimum_size = Vector2(joystick_radius * 2.0 + 16.0, joystick_radius * 2.0 + 16.0)
-	_joy_base.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	_joy_base.anchor_left = 0.0
-	_joy_base.anchor_right = 0.0
-	_joy_base.anchor_top = 1.0
-	_joy_base.anchor_bottom = 1.0
-	_joy_base.offset_left = 8.0
-	_joy_base.offset_top = -(joystick_radius * 2.0 + 32.0)
-	_joy_base.offset_right = joystick_radius * 2.0 + 24.0
-	_joy_base.offset_bottom = -8.0
-	_joy_base.mouse_filter = Control.MOUSE_FILTER_STOP
-	_joy_base.gui_input.connect(_on_joy_gui_input)
-	fill.add_child(_joy_base)
+	_build_dpad(fill)
+	_build_actions(fill)
 
-	var joy_ring := _make_circle_panel(Color(1, 1, 1, 0.18), Color(1, 1, 1, 0.35))
-	joy_ring.name = "Ring"
-	joy_ring.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	joy_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_joy_base.add_child(joy_ring)
+	_hint = Label.new()
+	_hint.name = "TouchHint"
+	_hint.text = "D-pad move · swipe look · FIRE / MELEE / DASH"
+	_hint.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_hint.anchor_left = 1.0
+	_hint.anchor_right = 1.0
+	_hint.anchor_top = 0.0
+	_hint.anchor_bottom = 0.0
+	_hint.offset_left = -460.0
+	_hint.offset_top = 8.0
+	_hint.offset_right = -8.0
+	_hint.offset_bottom = 36.0
+	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_hint.modulate = Color(1, 1, 1, 0.55)
+	_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fill.add_child(_hint)
 
-	_joy_knob = _make_circle_panel(Color(1, 1, 1, 0.45), Color(1, 1, 1, 0.7))
-	_joy_knob.name = "Knob"
-	_joy_knob.custom_minimum_size = Vector2(56, 56)
-	_joy_knob.size = Vector2(56, 56)
-	_joy_knob.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_joy_base.add_child(_joy_knob)
-	_reset_knob()
+func _build_dpad(fill: Control) -> void:
+	## Bottom-left 4 discrete movement buttons (not a joystick). Diagonals if two held.
+	var dpad := Control.new()
+	dpad.name = "DPad"
+	dpad.custom_minimum_size = Vector2(DPAD_BTN.x * 3.0 + 16.0, DPAD_BTN.y * 3.0 + 16.0)
+	dpad.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	dpad.anchor_left = 0.0
+	dpad.anchor_right = 0.0
+	dpad.anchor_top = 1.0
+	dpad.anchor_bottom = 1.0
+	var w := DPAD_BTN.x * 3.0 + 16.0
+	var h := DPAD_BTN.y * 3.0 + 16.0
+	dpad.offset_left = 4.0
+	dpad.offset_top = -h - 4.0
+	dpad.offset_right = w + 4.0
+	dpad.offset_bottom = -4.0
+	dpad.mouse_filter = Control.MOUSE_FILTER_STOP
+	fill.add_child(dpad)
 
-	# Action buttons cluster (right side, above bottom safe area, clear of top HUD)
+	var btn_f := _make_dpad_button("▲", "F")
+	btn_f.position = Vector2(DPAD_BTN.x + 8.0, 4.0)
+	_wire_dpad(btn_f, "fwd")
+	dpad.add_child(btn_f)
+
+	var btn_l := _make_dpad_button("◀", "L")
+	btn_l.position = Vector2(4.0, DPAD_BTN.y + 8.0)
+	_wire_dpad(btn_l, "left")
+	dpad.add_child(btn_l)
+
+	var btn_r := _make_dpad_button("▶", "R")
+	btn_r.position = Vector2(DPAD_BTN.x * 2.0 + 12.0, DPAD_BTN.y + 8.0)
+	_wire_dpad(btn_r, "right")
+	dpad.add_child(btn_r)
+
+	var btn_b := _make_dpad_button("▼", "B")
+	btn_b.position = Vector2(DPAD_BTN.x + 8.0, DPAD_BTN.y * 2.0 + 12.0)
+	_wire_dpad(btn_b, "back")
+	dpad.add_child(btn_b)
+
+func _make_dpad_button(symbol: String, _tag: String) -> Button:
+	var b := Button.new()
+	b.text = symbol
+	b.custom_minimum_size = DPAD_BTN
+	b.size = DPAD_BTN
+	b.focus_mode = Control.FOCUS_NONE
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color(0.1, 0.12, 0.18, 0.55)
+	normal.border_color = Color(1, 1, 1, 0.45)
+	normal.set_border_width_all(2)
+	normal.set_corner_radius_all(14)
+	var pressed := normal.duplicate()
+	pressed.bg_color = Color(0.28, 0.48, 0.8, 0.8)
+	var hover := normal.duplicate()
+	hover.bg_color = Color(0.16, 0.2, 0.3, 0.65)
+	b.add_theme_stylebox_override("normal", normal)
+	b.add_theme_stylebox_override("pressed", pressed)
+	b.add_theme_stylebox_override("hover", hover)
+	b.add_theme_stylebox_override("focus", normal)
+	b.add_theme_font_size_override("font_size", 22)
+	return b
+
+func _wire_dpad(btn: Button, dir: String) -> void:
+	btn.button_down.connect(func():
+		match dir:
+			"fwd":
+				_fwd_held = true
+			"back":
+				_back_held = true
+			"left":
+				_left_held = true
+			"right":
+				_right_held = true
+		_recompute_move()
+	)
+	btn.button_up.connect(func():
+		match dir:
+			"fwd":
+				_fwd_held = false
+			"back":
+				_back_held = false
+			"left":
+				_left_held = false
+			"right":
+				_right_held = false
+		_recompute_move()
+	)
+
+func _recompute_move() -> void:
+	# Matches Input.get_vector("move_left","move_right","move_forward","move_back"):
+	# forward = -y, back = +y, left = -x, right = +x
+	var v := Vector2.ZERO
+	if _left_held:
+		v.x -= 1.0
+	if _right_held:
+		v.x += 1.0
+	if _fwd_held:
+		v.y -= 1.0
+	if _back_held:
+		v.y += 1.0
+	if v.length_squared() > 0.0001:
+		v = v.normalized()
+	_touch_move = v
+	_push_move()
+
+func _build_actions(fill: Control) -> void:
+	## Right / bottom-right: Dash above; Fire + Melee prominent; Reload smaller; consumables strip.
 	var actions := VBoxContainer.new()
 	actions.name = "Actions"
 	actions.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
@@ -169,92 +259,58 @@ func _build_ui() -> void:
 	actions.anchor_bottom = 1.0
 	actions.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	actions.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	actions.offset_left = -340.0
-	actions.offset_top = -250.0
-	actions.offset_right = -8.0
-	actions.offset_bottom = -8.0
-	actions.add_theme_constant_override("separation", 10)
+	actions.offset_left = -280.0
+	actions.offset_top = -320.0
+	actions.offset_right = -6.0
+	actions.offset_bottom = -6.0
+	actions.add_theme_constant_override("separation", 8)
+	actions.alignment = BoxContainer.ALIGNMENT_END
 	actions.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	fill.add_child(actions)
 
-	var row1 := HBoxContainer.new()
-	row1.add_theme_constant_override("separation", 10)
-	row1.alignment = BoxContainer.ALIGNMENT_END
-	actions.add_child(row1)
-
-	_btn_fire = _make_action_button("FIRE", Vector2(110, 72), true)
-	_btn_fire.button_down.connect(func(): _set_firing(true))
-	_btn_fire.button_up.connect(func(): _set_firing(false))
-	row1.add_child(_btn_fire)
-
-	var btn_reload := _make_action_button("RELOAD", Vector2(96, 72), false)
-	_wire_action_button(btn_reload, "reload")
-	row1.add_child(btn_reload)
-
-	var row2 := HBoxContainer.new()
-	row2.add_theme_constant_override("separation", 10)
-	row2.alignment = BoxContainer.ALIGNMENT_END
-	actions.add_child(row2)
-
-	var btn_melee := _make_action_button("MELEE", Vector2(88, 64), false)
-	_wire_action_button(btn_melee, "melee")
-	row2.add_child(btn_melee)
-
-	var btn_dash := _make_action_button("DASH", Vector2(88, 64), false)
+	# Dash above the fire/melee cluster
+	var dash_row := HBoxContainer.new()
+	dash_row.add_theme_constant_override("separation", 8)
+	dash_row.alignment = BoxContainer.ALIGNMENT_END
+	actions.add_child(dash_row)
+	var btn_dash := _make_action_button("DASH", ACTION_MED, false)
 	_wire_action_button(btn_dash, "dash")
-	row2.add_child(btn_dash)
+	dash_row.add_child(btn_dash)
 
-	var btn_jump := _make_action_button("JUMP", Vector2(88, 64), false)
+	# Fire + Melee prominent
+	var combat_row := HBoxContainer.new()
+	combat_row.add_theme_constant_override("separation", 10)
+	combat_row.alignment = BoxContainer.ALIGNMENT_END
+	actions.add_child(combat_row)
+	var btn_fire := _make_action_button("FIRE", ACTION_BIG, true)
+	btn_fire.button_down.connect(func(): _set_firing(true))
+	btn_fire.button_up.connect(func(): _set_firing(false))
+	combat_row.add_child(btn_fire)
+	var btn_melee := _make_action_button("MELEE", ACTION_BIG, true)
+	_wire_action_button(btn_melee, "melee")
+	combat_row.add_child(btn_melee)
+
+	# Reload (+ small jump) near cluster
+	var util_row := HBoxContainer.new()
+	util_row.add_theme_constant_override("separation", 8)
+	util_row.alignment = BoxContainer.ALIGNMENT_END
+	actions.add_child(util_row)
+	var btn_reload := _make_action_button("RELOAD", ACTION_SM, false)
+	_wire_action_button(btn_reload, "reload")
+	util_row.add_child(btn_reload)
+	var btn_jump := _make_action_button("JUMP", ACTION_SM, false)
 	_wire_action_button(btn_jump, "jump")
-	row2.add_child(btn_jump)
+	util_row.add_child(btn_jump)
 
-	var row3 := HBoxContainer.new()
-	row3.add_theme_constant_override("separation", 8)
-	row3.alignment = BoxContainer.ALIGNMENT_END
-	actions.add_child(row3)
-
-	var btn_hp := _make_action_button("HP", Vector2(64, 48), false)
-	_wire_action_button(btn_hp, "use_health")
-	row3.add_child(btn_hp)
-
-	var btn_en := _make_action_button("NRG", Vector2(64, 48), false)
-	_wire_action_button(btn_en, "use_energy")
-	row3.add_child(btn_en)
-
-	var btn_ammo := _make_action_button("AMMO", Vector2(64, 48), false)
-	_wire_action_button(btn_ammo, "use_ammo")
-	row3.add_child(btn_ammo)
-
-	var btn_alc := _make_action_button("ALC", Vector2(64, 48), false)
-	_wire_action_button(btn_alc, "use_alcohol")
-	row3.add_child(btn_alc)
-
-	_hint = Label.new()
-	_hint.name = "TouchHint"
-	_hint.text = "Touch: stick move · drag right look · hold FIRE"
-	_hint.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_hint.anchor_left = 1.0
-	_hint.anchor_right = 1.0
-	_hint.anchor_top = 0.0
-	_hint.anchor_bottom = 0.0
-	_hint.offset_left = -420.0
-	_hint.offset_top = 8.0
-	_hint.offset_right = -8.0
-	_hint.offset_bottom = 36.0
-	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_hint.modulate = Color(1, 1, 1, 0.65)
-	_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	fill.add_child(_hint)
-
-func _make_circle_panel(fill: Color, border: Color) -> Panel:
-	var p := Panel.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = fill
-	sb.border_color = border
-	sb.set_border_width_all(2)
-	sb.set_corner_radius_all(999)
-	p.add_theme_stylebox_override("panel", sb)
-	return p
+	# Compact consumables strip
+	var cons_row := HBoxContainer.new()
+	cons_row.add_theme_constant_override("separation", 6)
+	cons_row.alignment = BoxContainer.ALIGNMENT_END
+	actions.add_child(cons_row)
+	for pair in [["HP", "use_health"], ["NRG", "use_energy"], ["AMMO", "use_ammo"], ["ALC", "use_alcohol"]]:
+		var btn := _make_action_button(pair[0], CONSUMABLE, false)
+		_wire_action_button(btn, pair[1])
+		cons_row.add_child(btn)
 
 func _make_action_button(label: String, min_size: Vector2, emphasize: bool) -> Button:
 	var b := Button.new()
@@ -262,8 +318,8 @@ func _make_action_button(label: String, min_size: Vector2, emphasize: bool) -> B
 	b.custom_minimum_size = min_size
 	b.focus_mode = Control.FOCUS_NONE
 	var normal := StyleBoxFlat.new()
-	normal.bg_color = Color(0.12, 0.14, 0.2, 0.55 if emphasize else 0.42)
-	normal.border_color = Color(1, 1, 1, 0.55 if emphasize else 0.35)
+	normal.bg_color = Color(0.12, 0.14, 0.2, 0.58 if emphasize else 0.42)
+	normal.border_color = Color(1, 1, 1, 0.6 if emphasize else 0.35)
 	normal.set_border_width_all(2)
 	normal.set_corner_radius_all(12)
 	normal.content_margin_left = 8
@@ -271,14 +327,14 @@ func _make_action_button(label: String, min_size: Vector2, emphasize: bool) -> B
 	normal.content_margin_top = 6
 	normal.content_margin_bottom = 6
 	var pressed := normal.duplicate()
-	pressed.bg_color = Color(0.25, 0.45, 0.75, 0.75)
+	pressed.bg_color = Color(0.25, 0.45, 0.75, 0.78)
 	var hover := normal.duplicate()
 	hover.bg_color = Color(0.18, 0.22, 0.32, 0.65)
 	b.add_theme_stylebox_override("normal", normal)
 	b.add_theme_stylebox_override("pressed", pressed)
 	b.add_theme_stylebox_override("hover", hover)
 	b.add_theme_stylebox_override("focus", normal)
-	b.add_theme_font_size_override("font_size", 16 if emphasize else 14)
+	b.add_theme_font_size_override("font_size", 17 if emphasize else 13)
 	return b
 
 func _wire_action_button(btn: Button, action: String) -> void:
@@ -296,7 +352,6 @@ func _wire_action_button(btn: Button, action: String) -> void:
 func _set_firing(pressed: bool) -> void:
 	if player and is_instance_valid(player):
 		player.set_touch_firing(pressed)
-	# Also mirror into InputMap so desktop+touch coexist cleanly
 	if InputMap.has_action("fire"):
 		if pressed:
 			Input.action_press("fire")
@@ -308,73 +363,6 @@ func _release_all_actions() -> void:
 		if InputMap.has_action(a):
 			Input.action_release(a)
 
-func _reset_knob() -> void:
-	if _joy_knob == null or _joy_base == null:
-		return
-	# Defer until sized after first layout pass
-	call_deferred("_reset_knob_immediate")
-
-func _on_joy_gui_input(event: InputEvent) -> void:
-	if not _shown:
-		return
-	if event is InputEventScreenTouch:
-		var st := event as InputEventScreenTouch
-		if st.pressed and _joy_touch_idx < 0:
-			_joy_touch_idx = st.index
-			_joy_center = _joy_base.size * 0.5
-			_update_joy(st.position)
-			_joy_base.accept_event()
-		elif not st.pressed and st.index == _joy_touch_idx:
-			_joy_touch_idx = -1
-			_touch_move = Vector2.ZERO
-			_push_move()
-			_reset_knob_immediate()
-			_joy_base.accept_event()
-	elif event is InputEventScreenDrag:
-		var sd := event as InputEventScreenDrag
-		if sd.index == _joy_touch_idx:
-			_update_joy(sd.position)
-			_joy_base.accept_event()
-	# Emulate Touch From Mouse / desktop testing
-	elif event is InputEventMouseButton:
-		var mb := event as InputEventMouseButton
-		if mb.button_index == MOUSE_BUTTON_LEFT:
-			if mb.pressed and _joy_touch_idx < 0:
-				_joy_touch_idx = 1000
-				_joy_center = _joy_base.size * 0.5
-				_update_joy(mb.position)
-				_joy_base.accept_event()
-			elif not mb.pressed and _joy_touch_idx == 1000:
-				_joy_touch_idx = -1
-				_touch_move = Vector2.ZERO
-				_push_move()
-				_reset_knob_immediate()
-				_joy_base.accept_event()
-	elif event is InputEventMouseMotion and _joy_touch_idx == 1000:
-		var mm := event as InputEventMouseMotion
-		_update_joy(mm.position)
-		_joy_base.accept_event()
-
-func _update_joy(local_pos: Vector2) -> void:
-	var delta := local_pos - _joy_center
-	var max_r := joystick_radius
-	if delta.length() > max_r:
-		delta = delta.normalized() * max_r
-	_joy_knob.position = _joy_center + delta - _joy_knob.size * 0.5
-	var v := delta / max_r
-	# Godot move: x = strafe, y = forward/back (negative y is forward in get_vector)
-	if v.length() < joystick_deadzone:
-		_touch_move = Vector2.ZERO
-	else:
-		var mag := (v.length() - joystick_deadzone) / (1.0 - joystick_deadzone)
-		_touch_move = Vector2(v.x, v.y).normalized() * clampf(mag, 0.0, 1.0)
-	_push_move()
-
-func _reset_knob_immediate() -> void:
-	var c := _joy_base.size * 0.5
-	_joy_center = c
-	_joy_knob.position = c - _joy_knob.size * 0.5
-
 func _push_move() -> void:
 	if player and is_instance_valid(player):
 		player.set_touch_move(_touch_move)
@@ -382,13 +370,11 @@ func _push_move() -> void:
 func _on_look_gui_input(event: InputEvent) -> void:
 	if not _shown:
 		return
-	# Ignore events that hit buttons — buttons are siblings drawn later so they get priority,
-	# but also skip if event was already handled.
+	# Looking never fires — only apply_touch_look on drag.
 	if event is InputEventScreenTouch:
 		var st := event as InputEventScreenTouch
 		if st.pressed and _look_touch_idx < 0:
 			_look_touch_idx = st.index
-			_look_last_pos = st.position
 			_look_zone.accept_event()
 		elif not st.pressed and st.index == _look_touch_idx:
 			_look_touch_idx = -1
@@ -403,7 +389,6 @@ func _on_look_gui_input(event: InputEvent) -> void:
 		if mb.button_index == MOUSE_BUTTON_LEFT:
 			if mb.pressed and _look_touch_idx < 0:
 				_look_touch_idx = 1001
-				_look_last_pos = mb.position
 				_look_zone.accept_event()
 			elif not mb.pressed and _look_touch_idx == 1001:
 				_look_touch_idx = -1
