@@ -16,3 +16,15 @@ Tickle laughs and mission ambience are built from **Mixkit** free SFX (Mixkit Li
 - Procedural elements (drones, noise beds, city rumble): original to this repo (treat as CC0 within the game).
 
 Character targets: giggles = girly teenage tickle laughs (cute/bubbly, no words); zombies = wet snarls / feral growls / distant shrieks / oppressive dread (not cute cartoon moans).
+
+## Custom player laughs (Sonny)
+
+Replaced Mixkit tickle laughs with user-recorded clips (2026-09-11):
+
+| Game file | Source |
+|-----------|--------|
+| `giggle_01.ogg` | `custom_src/sonny_01_light_giggle.wav` — light giggle A |
+| `giggle_02.ogg` | `custom_src/sonny_02_ticklish_forced_laugh.wav` — ticklish forced laugh B |
+| `laugh_intense.ogg` | `custom_src/sonny_03_open_mouth_laugh.wav` — open-mouth intense (3+ ticklers / stamina empty) |
+
+Converted with ffmpeg loudnorm → Ogg Vorbis. Owned by the project author / user-provided.
