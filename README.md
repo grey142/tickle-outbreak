@@ -79,16 +79,28 @@ Display defaults: `sensor_landscape` orientation, stretch `canvas_items` + `expa
 3. In the Godot editor: **Project → Project Settings → Parse Options / Input Devices** enable **Emulate Touch From Mouse** (Editor Settings → General → Pointing also has “Emulate Touch From Mouse”) so mouse clicks become `InputEventScreenTouch` / `ScreenDrag`. With the main-menu toggle on, mouse drag on the D-pad / look zone also works without that setting.
 4. Or set `GameState.force_mobile_controls = true` from the debugger.
 
-Touch look sensitivity default: `0.004` (`data/player_stats.json` → `touch_look_sensitivity`). Mouse sensitivity remains `0.0025`.
+Touch look sensitivity default: `0.002` (`data/player_stats.json` → `touch_look_sensitivity`), with light swipe/mouse look smoothing. Mouse sensitivity default: `0.002`.
 
 Desktop keyboard/mouse keep working when the touch overlay is hidden.
 
 ## Loop
 
-1. **Main Menu** → New Run (starts with 100 coins for shop testing).
-2. **Hub** — buy/equip guns, melee, armor; permanent character upgrades; buy consumables.
-3. **Deploy** → city-block mission arena. Kill quota scales with mission number.
-4. Clear → hub (mission advances). Health 0 → **Tickle Infected** game over (retry or hub).
+1. **Main Menu** → New Run (starts with 100 coins for shop testing), **Gallery / Compendium**, or **CHEATS**.
+2. **Hub** — **Missions** tab to select/replay unlocked missions for coin farming; buy/equip guns, melee, armor; upgrades; consumables (bullets cost **5**).
+3. **Deploy** → city-block mission arena. Kill quota scales with the **selected** mission number. Meta (coins/gear/upgrades) is kept on replay.
+4. Clear → hub unlocks the next frontier mission (`highest_mission_unlocked`); replaying an older mission does not lock you out. Health 0 → **Tickle Infected** game over (retry or hub).
+5. **Gallery** — zombie compendium (stats + 3 sprite variants) and tickle-scene mockups; unlocks when campaign frontier reaches each type’s `unlock_mission`.
+
+## Cheats
+
+Prototype **CHEATS** panel on Main Menu and Hub (persisted lightly via `user://tickle_outbreak_meta.cfg` with mission unlocks):
+
+| Cheat | Effect |
+|-------|--------|
+| Infinite health | Tickle damage ignored; health stays at max |
+| Infinite ammo | Clip/reserve not consumed |
+| All items free | Shop prices treated as 0 |
+| Unlock all levels | Mission list unlocks through mission 20; elite gallery entries available |
 
 ## Balance data
 
@@ -108,7 +120,7 @@ scripts/
   systems/      TickleSystem
   mission/      ArenaBuilder, MissionManager, MissionRoot
   hub/          Shop UI
-  ui/           HUD, MobileControls, cinematic overlay, menus
+  ui/           HUD, MobileControls, cinematic overlay, menus, Gallery
 ```
 
 

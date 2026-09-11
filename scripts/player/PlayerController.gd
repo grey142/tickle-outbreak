@@ -36,6 +36,7 @@ var _gun: Dictionary = {}
 var _melee: Dictionary = {}
 ## One-shot melee request from mobile MELEE button (ignored InputMap mouse when mobile).
 var touch_melee_queued: bool = false
+var _look_smooth: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
 	add_to_group("player")
@@ -66,12 +67,6 @@ func set_mobile_controls_active(active: bool) -> void:
 
 func set_touch_move(v: Vector2) -> void:
 	touch_move = v.limit_length(1.0)
-
-func apply_touch_look(relative_scaled: Vector2) -> void:
-	## relative_scaled already includes touch sensitivity (radians-ish scale).
-	head.rotate_y(-relative_scaled.x)
-	camera.rotate_x(-relative_scaled.y)
-	camera.rotation.x = clampf(camera.rotation.x, deg_to_rad(-85), deg_to_rad(85))
 
 func set_touch_firing(pressed: bool) -> void:
 	touch_firing = pressed
@@ -117,11 +112,23 @@ func _update_weapon_mesh() -> void:
 	arm.position = Vector3(0.28, -0.28, -0.25)
 	weapon_view.add_child(arm)
 
+func apply_look_delta(scaled: Vector2) -> void:
+	## Shared look path for mouse + touch (scaled already includes sensitivity).
+	_look_smooth = _look_smooth.lerp(scaled, 0.45)
+	var apply := _look_smooth
+	_look_smooth = _look_smooth.lerp(Vector2.ZERO, 0.35)
+	head.rotate_y(-apply.x)
+	camera.rotate_x(-apply.y)
+	camera.rotation.x = clampf(camera.rotation.x, deg_to_rad(-85), deg_to_rad(85))
+
+func apply_touch_look(relative_scaled: Vector2) -> void:
+	## relative_scaled already includes touch sensitivity (radians-ish scale).
+	apply_look_delta(relative_scaled)
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and mouse_captured and not mobile_controls_active:
-		head.rotate_y(-event.relative.x * float(DataManager.player_stats.get("mouse_sensitivity", 0.0025)))
-		camera.rotate_x(-event.relative.y * float(DataManager.player_stats.get("mouse_sensitivity", 0.0025)))
-		camera.rotation.x = clampf(camera.rotation.x, deg_to_rad(-85), deg_to_rad(85))
+		var sens := float(DataManager.player_stats.get("mouse_sensitivity", 0.002))
+		apply_look_delta(event.relative * sens)
 	if event.is_action_pressed("ui_cancel"):
 		if mobile_controls_active:
 			# Esc toggles force-mobile off when forced from desktop; otherwise no-op capture
@@ -207,6 +214,9 @@ func _tick_combat(delta: float) -> void:
 		firing = touch_firing
 	else:
 		firing = Input.is_action_pressed("fire")
+	if GameState.cheat_infinite_ammo and clip <= 0:
+		clip = int(_gun.get("clip_size", 12))
+		ammo_reserve = maxi(ammo_reserve, GameState.get_ammo_capacity())
 	if firing and fire_cooldown <= 0.0 and clip > 0:
 		_fire()
 	elif firing and clip <= 0 and ammo_reserve > 0:
@@ -238,7 +248,8 @@ func _tick_combat(delta: float) -> void:
 func _fire() -> void:
 	var rof := float(_gun.get("rate_of_fire", 1.0))
 	fire_cooldown = 1.0 / maxf(rof, 0.01)
-	clip -= 1
+	if not GameState.cheat_infinite_ammo:
+		clip -= 1
 	var aim_penalty := GameState.alcohol_aim_penalty
 	var gun_type := String(_gun.get("type", "hitscan"))
 	if gun_type == "shotgun":
@@ -301,6 +312,10 @@ func _start_reload() -> void:
 func _finish_reload() -> void:
 	is_reloading = false
 	var clip_size := int(_gun.get("clip_size", 12))
+	if GameState.cheat_infinite_ammo:
+		clip = clip_size
+		ammo_reserve = maxi(ammo_reserve, GameState.get_ammo_capacity())
+		return
 	var need := clip_size - clip
 	var take := mini(need, ammo_reserve)
 	clip += take
@@ -356,6 +371,9 @@ func _try_consumable(id: String) -> void:
 	EventBus.hud_refresh.emit()
 
 func apply_tickle_damage(dps: float, delta: float) -> void:
+	if GameState.cheat_infinite_health:
+		health = max_health
+		return
 	var amount := dps * delta * GameState.alcohol_tickle_multiplier
 	if stamina > 0.0:
 		var to_stam := amount

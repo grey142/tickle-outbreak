@@ -23,9 +23,9 @@
       "name": "Bullets",
       "effect": "refill_ammo",
       "value": 1.0,
-      "shop_cost": 40,
+      "shop_cost": 5,
       "max_per_mission": 99,
-      "description": "Refills ammo to capacity for the equipped gun."
+      "description": "Refills ammo to capacity for the equipped gun. Cheap coin sink (5)."
     },
     {
       "id": "alcohol",

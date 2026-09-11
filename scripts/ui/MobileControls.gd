@@ -4,7 +4,7 @@ class_name MobileControls
 
 signal mobile_visibility_changed(shown: bool)
 
-@export var look_sensitivity: float = 0.004
+@export var look_sensitivity: float = 0.002
 
 var player: PlayerController
 var _shown: bool = false
@@ -19,12 +19,13 @@ var _back_held: bool = false
 var _left_held: bool = false
 var _right_held: bool = false
 var _touch_move: Vector2 = Vector2.ZERO
+var _look_avg: Vector2 = Vector2.ZERO
 
-const DPAD_BTN := Vector2(80, 80)
-const ACTION_BIG := Vector2(96, 96)
-const ACTION_MED := Vector2(88, 72)
-const ACTION_SM := Vector2(80, 60)
-const CONSUMABLE := Vector2(68, 52)
+const DPAD_BTN := Vector2(96, 96)
+const ACTION_BIG := Vector2(116, 116)
+const ACTION_MED := Vector2(106, 86)
+const ACTION_SM := Vector2(96, 72)
+const CONSUMABLE := Vector2(82, 62)
 
 func _ready() -> void:
 	layer = 5
@@ -204,7 +205,7 @@ func _make_dpad_button(symbol: String, _tag: String) -> Button:
 	b.add_theme_stylebox_override("pressed", pressed)
 	b.add_theme_stylebox_override("hover", hover)
 	b.add_theme_stylebox_override("focus", normal)
-	b.add_theme_font_size_override("font_size", 28)
+	b.add_theme_font_size_override("font_size", 32)
 	return b
 
 func _wire_dpad(btn: Button, dir: String) -> void:
@@ -261,8 +262,8 @@ func _build_actions(fill: Control) -> void:
 	actions.anchor_bottom = 1.0
 	actions.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	actions.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	actions.offset_left = -340.0
-	actions.offset_top = -380.0
+	actions.offset_left = -400.0
+	actions.offset_top = -440.0
 	actions.offset_right = -6.0
 	actions.offset_bottom = -6.0
 	actions.add_theme_constant_override("separation", 10)
@@ -338,7 +339,7 @@ func _make_action_button(label: String, min_size: Vector2, emphasize: bool) -> B
 	b.add_theme_stylebox_override("pressed", pressed)
 	b.add_theme_stylebox_override("hover", hover)
 	b.add_theme_stylebox_override("focus", normal)
-	b.add_theme_font_size_override("font_size", 20 if emphasize else 15)
+	b.add_theme_font_size_override("font_size", 22 if emphasize else 16)
 	return b
 
 func _wire_action_button(btn: Button, action: String) -> void:
@@ -403,5 +404,9 @@ func _on_look_gui_input(event: InputEvent) -> void:
 		_look_zone.accept_event()
 
 func _apply_look(relative: Vector2) -> void:
+	# Exponential smooth on raw swipe deltas before sensitivity — less twitchy.
+	_look_avg = _look_avg.lerp(relative, 0.55)
+	var smoothed := _look_avg
+	_look_avg *= 0.65
 	if player and is_instance_valid(player):
-		player.apply_touch_look(relative * look_sensitivity)
+		player.apply_touch_look(smoothed * look_sensitivity)

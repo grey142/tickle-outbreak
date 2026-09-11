@@ -57,6 +57,17 @@ text = "Next Mission: 1"
 layout_mode = 2
 size_flags_vertical = 3
 
+[node name="Missions" type="MarginContainer" parent="Margin/VBox/Tabs"]
+layout_mode = 2
+
+[node name="Scroll" type="ScrollContainer" parent="Margin/VBox/Tabs/Missions"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="List" type="VBoxContainer" parent="Margin/VBox/Tabs/Missions/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+
 [node name="Weapons" type="MarginContainer" parent="Margin/VBox/Tabs"]
 layout_mode = 2
 
@@ -116,6 +127,20 @@ text = "Loadout:"
 [node name="Status" type="Label" parent="Margin/VBox"]
 layout_mode = 2
 text = "Welcome to the hub. Buy gear, then start the mission."
+
+[node name="NavRow" type="HBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Gallery" type="Button" parent="Margin/VBox/NavRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Gallery"
+
+[node name="Cheats" type="Button" parent="Margin/VBox/NavRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "CHEATS"
 
 [node name="StartMission" type="Button" parent="Margin/VBox"]
 layout_mode = 2
