@@ -48,6 +48,24 @@ func _process(_delta: float) -> void:
 	if want != _shown:
 		_set_shown(want)
 
+func _input(event: InputEvent) -> void:
+	## Count real screen touches globally (even when they begin on buttons) so web
+	## mouse-emulation cannot yank the camera while another finger holds move/fire.
+	if not _shown:
+		return
+	if event is InputEventScreenTouch:
+		var st := event as InputEventScreenTouch
+		if st.pressed:
+			_screen_touches += 1
+			if _look_touch_idx == 1001:
+				_look_touch_idx = -1
+				_look_avg = Vector2.ZERO
+		else:
+			_screen_touches = maxi(_screen_touches - 1, 0)
+			if st.index == _look_touch_idx:
+				_look_touch_idx = -1
+				_look_avg = Vector2.ZERO
+
 func is_active() -> bool:
 	return _shown
 
@@ -123,20 +141,12 @@ func _build_ui() -> void:
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	margin.add_child(fill)
 
-	# Look zone avoids bottom-left D-pad and bottom-right actions so multitouch
-	# move/fire fingers never start a look drag (fixes camera shake on phones/web).
+	# Full-screen look layer under buttons. Multitouch safety is in _input + _point_allows_look
+	# (buttons on top still receive their own fingers; mouse-emulation is ignored while touches > 0).
 	_look_zone = ColorRect.new()
 	_look_zone.name = "LookZone"
 	_look_zone.color = Color(0, 0, 0, 0)
-	_look_zone.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_look_zone.anchor_left = 0.28
-	_look_zone.anchor_right = 0.62
-	_look_zone.anchor_top = 0.0
-	_look_zone.anchor_bottom = 0.72
-	_look_zone.offset_left = 0.0
-	_look_zone.offset_right = 0.0
-	_look_zone.offset_top = 0.0
-	_look_zone.offset_bottom = 0.0
+	_look_zone.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_look_zone.mouse_filter = Control.MOUSE_FILTER_STOP
 	_look_zone.gui_input.connect(_on_look_gui_input)
 	fill.add_child(_look_zone)
@@ -394,8 +404,7 @@ func _on_look_gui_input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
 		var st := event as InputEventScreenTouch
 		if st.pressed:
-			_screen_touches = maxi(_screen_touches + 1, 1)
-			# Cancel mouse-emulated look; finger index owns look exclusively.
+			# Touch counting is in _input; here only claim a look finger.
 			if _look_touch_idx == 1001:
 				_look_touch_idx = -1
 				_look_avg = Vector2.ZERO
@@ -403,12 +412,10 @@ func _on_look_gui_input(event: InputEvent) -> void:
 				_look_touch_idx = st.index
 				_look_avg = Vector2.ZERO
 				_look_zone.accept_event()
-		else:
-			_screen_touches = maxi(_screen_touches - 1, 0)
-			if st.index == _look_touch_idx:
-				_look_touch_idx = -1
-				_look_avg = Vector2.ZERO
-				_look_zone.accept_event()
+		elif st.index == _look_touch_idx:
+			_look_touch_idx = -1
+			_look_avg = Vector2.ZERO
+			_look_zone.accept_event()
 	elif event is InputEventScreenDrag:
 		var sd := event as InputEventScreenDrag
 		if sd.index == _look_touch_idx:
