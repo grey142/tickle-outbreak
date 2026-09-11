@@ -68,10 +68,10 @@ Spawn weights are relative among **unlocked** types for the current mission.
 
 ## Olivia face reaction (tickle HUD)
 
-When zombies are **actively** dealing tickle DPS, a large top-left portrait shows Olivia Grace’s face:
+A large top-left portrait shows Olivia Grace’s face from mission start:
+- Active ticklers = 0 → `face_calm.png` (panel stays visible)
 - `N = clamp(active_ticklers, 1, 5)` → `face_N.png` while stamina > 0
 - If stamina ≤ 0 (depleted) → `face_N_tired.png` (tears)
-- Hidden when active ticklers = 0
 Assets live under `assets/survivor/faces/`; paths listed in `data/faces.json`.
 
 ## Resolved ambiguities

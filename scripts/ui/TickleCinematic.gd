@@ -7,7 +7,9 @@ class_name TickleCinematic
 
 const PANEL_SIZE := 200.0
 const MAX_FACE := 5
+const CALM_PATH := "res://assets/survivor/faces/face_calm.png"
 
+var _calm_tex: Texture2D
 var _face_tex: Array[Texture2D] = []
 var _tired_tex: Array[Texture2D] = []
 var _last_count: int = -1
@@ -16,10 +18,12 @@ var _last_tired: bool = false
 func _ready() -> void:
 	_load_faces()
 	_ensure_layout()
-	panel.visible = false
 	EventBus.active_ticklers_changed.connect(_on_ticklers)
+	# Visible from mission start with calm face (0 active ticklers).
+	_show_calm()
 
 func _load_faces() -> void:
+	_calm_tex = load(CALM_PATH) as Texture2D
 	_face_tex.clear()
 	_tired_tex.clear()
 	for i in range(1, MAX_FACE + 1):
@@ -59,11 +63,21 @@ func _ensure_layout() -> void:
 		face.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		face.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
+func _show_calm() -> void:
+	_last_count = 0
+	_last_tired = false
+	if _calm_tex == null:
+		panel.visible = false
+		return
+	face.texture = _calm_tex
+	panel.modulate = Color(1, 1, 1, 0.92)
+	panel.visible = true
+
 func _on_ticklers(count: int, stamina_depleted: bool = false) -> void:
 	if count <= 0:
-		panel.visible = false
-		_last_count = 0
-		_last_tired = stamina_depleted
+		if _last_count == 0 and panel.visible and face.texture == _calm_tex:
+			return
+		_show_calm()
 		return
 	var n := clampi(count, 1, MAX_FACE)
 	var tired := stamina_depleted
@@ -77,7 +91,7 @@ func _on_ticklers(count: int, stamina_depleted: bool = false) -> void:
 	elif n - 1 < _face_tex.size():
 		tex = _face_tex[n - 1]
 	if tex == null:
-		panel.visible = false
+		_show_calm()
 		return
 	face.texture = tex
 	panel.visible = true

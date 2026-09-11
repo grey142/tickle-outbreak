@@ -68,7 +68,7 @@ On Android/iOS, or when a touchscreen is available, missions show an on-screen *
 | **RELOAD** / **JUMP** (smaller, near cluster) | Tap |
 | HP / NRG / AMMO / ALC | Compact consumables strip |
 | Top health (+ stamina) | Primary bars; leave room for face panel |
-| Top-left **Olivia face** panel | Large face reaction (1–5 intensity; tired/tears when stamina depleted) |
+| Top-left **Olivia face** panel | Calm face at 0 ticklers; 1–5 intensity; tired/tears when stamina depleted |
 
 Display defaults: `sensor_landscape` orientation, stretch `canvas_items` + `expand` aspect so phones fill the screen while desktop stays usable.
 
@@ -126,7 +126,7 @@ scripts/
 
 ## Zombie sprite variants
 
-Each of the six zombie types has **three PNG variants** under `assets/zombies/<type>/` (e.g. `drone_01.png` … `drone_03.png`). Paths are listed per type in `data/zombies.json` as `sprite_variants`. On spawn, `Zombie.gd` **randomly picks one** of the three and shows it as a camera-facing `Sprite3D` billboard (capsule body mesh is hidden; head/body hitboxes remain). While tickling, the top-left HUD shows Olivia Grace face sprites (`assets/survivor/faces/`) by active tickler count and stamina.
+Each of the six zombie types has **three PNG variants** under `assets/zombies/<type>/` (e.g. `drone_01.png` … `drone_03.png`). Paths are listed per type in `data/zombies.json` as `sprite_variants`. On spawn, `Zombie.gd` **randomly picks one** of the three and shows it as a camera-facing `Sprite3D` billboard (capsule body mesh is hidden; head/body hitboxes remain). The top-left HUD shows Olivia Grace face sprites (`assets/survivor/faces/`) from mission start: calm at 0 ticklers, intensity 1–5 while tickled, tired variants when stamina is depleted.
 
 ## Survivor outfit sprites (Olivia Grace)
 

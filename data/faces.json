@@ -1,6 +1,7 @@
 {
   "panel_size": 200,
-  "description": "Olivia Grace tickle face reactions. Index N = clamp(active_ticklers, 1, 5). Use *_tired when stamina <= 0.",
+  "description": "Olivia Grace tickle face reactions. Index 0 = calm (no active ticklers). Index N = clamp(active_ticklers, 1, 5). Use *_tired when stamina <= 0.",
+  "calm": "res://assets/survivor/faces/face_calm.png",
   "faces": {
     "1": "res://assets/survivor/faces/face_1.png",
     "2": "res://assets/survivor/faces/face_2.png",
