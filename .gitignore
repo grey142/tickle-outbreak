@@ -28,3 +28,4 @@ builds/
 *.exe
 *.x86_64
 *.app
+_audio_src/

@@ -1,11 +1,11 @@
 extends Node
 class_name MissionAmbience
-## Looping apocalyptic city + female-zombie ambience for mission scenes.
+## Looping apocalyptic city + Dead Island-scary zombie ambience for mission scenes.
 
 const CITY_PATH := "res://assets/audio/ambience_city.ogg"
 const ZOMBIE_PATH := "res://assets/audio/ambience_zombies.ogg"
-const CITY_VOL_DB := -10.0
-const ZOMBIE_VOL_DB := -9.0
+const CITY_VOL_DB := -11.0
+const ZOMBIE_VOL_DB := -6.5
 
 var _city: AudioStreamPlayer
 var _zombies: AudioStreamPlayer
