@@ -13,7 +13,7 @@ First-person **tickle-zombie survival FPS** vertical slice for **Godot 4.3+**.
 - Browsers often require a **user gesture** before audio can play — tap/click the game once if sound is muted.
 - This Web build uses Godot’s **no-threads** export (no SharedArrayBuffer / COOP-COEP headers), so it works on stock GitHub Pages.
 
-Tongue-in-cheek tone; zombies use random billboard sprite variants; survivor **Olivia Grace** has outfit sprites per armor (hub/HUD portraits + world peek billboard). Simple FPS arms remain placeholders. Not pornographic — soft feet/stomach lore appears only in item descriptions.
+Tongue-in-cheek tone; zombies use random billboard sprite variants; survivor **Olivia Grace** has outfit sprites per armor (hub shop preview). Simple FPS arms remain placeholders. Not pornographic — soft feet/stomach lore appears only in item descriptions.
 
 ## Open & run (Godot editor)
 
@@ -118,7 +118,7 @@ Each of the six zombie types has **three PNG variants** under `assets/zombies/<t
 
 ## Survivor outfit sprites (Olivia Grace)
 
-Each armor entry in `data/armor.json` has a `sprite` path under `assets/survivor/<id>.png` (11 outfits: bikini → hero_jacket). Hub Armor shop shows thumbnails plus a large equipped portrait; the mission HUD shows a top-right survivor portrait. Equipping armor emits `GameState.equipment_changed`, which swaps those textures (and a small world-space `Sprite3D` peek billboard beside the player).
+Each armor entry in `data/armor.json` has a `sprite` path under `assets/survivor/<id>.png` (11 outfits: bikini → hero_jacket). Hub Armor shop shows thumbnails plus a large equipped portrait. Equipping armor emits `GameState.equipment_changed`, which swaps those hub preview textures. Mission HUD no longer shows an outfit portrait (it blocked the FPS view).
 
 ## Web export
 

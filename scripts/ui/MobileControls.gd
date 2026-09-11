@@ -78,6 +78,7 @@ func _apply_player_mobile_mode() -> void:
 		_right_held = false
 		player.set_touch_move(Vector2.ZERO)
 		player.set_touch_firing(false)
+		# Clear any queued melee / synthetic InputMap presses
 		_release_all_actions()
 
 func _build_ui() -> void:
@@ -288,7 +289,7 @@ func _build_actions(fill: Control) -> void:
 	btn_fire.button_up.connect(func(): _set_firing(false))
 	combat_row.add_child(btn_fire)
 	var btn_melee := _make_action_button("MELEE", ACTION_BIG, true)
-	_wire_action_button(btn_melee, "melee")
+	btn_melee.button_down.connect(_on_melee_pressed)
 	combat_row.add_child(btn_melee)
 
 	# Reload (+ small jump) near cluster
@@ -353,13 +354,13 @@ func _wire_action_button(btn: Button, action: String) -> void:
 	)
 
 func _set_firing(pressed: bool) -> void:
+	# Prefer touch_firing only — do not synthesize InputMap "fire" (LookZone / mouse LMB shares that action).
 	if player and is_instance_valid(player):
 		player.set_touch_firing(pressed)
-	if InputMap.has_action("fire"):
-		if pressed:
-			Input.action_press("fire")
-		else:
-			Input.action_release("fire")
+
+func _on_melee_pressed() -> void:
+	if player and is_instance_valid(player):
+		player.request_melee()
 
 func _release_all_actions() -> void:
 	for a in ["fire", "reload", "melee", "dash", "jump", "use_health", "use_energy", "use_ammo", "use_alcohol"]:

@@ -34,7 +34,8 @@ var touch_firing: bool = false
 
 var _gun: Dictionary = {}
 var _melee: Dictionary = {}
-var _outfit_billboard: Sprite3D
+## One-shot melee request from mobile MELEE button (ignored InputMap mouse when mobile).
+var touch_melee_queued: bool = false
 
 func _ready() -> void:
 	add_to_group("player")
@@ -46,41 +47,7 @@ func _ready() -> void:
 		mouse_captured = false
 	_apply_stats_from_state()
 	_equip_from_state()
-	_ensure_outfit_billboard()
-	if not GameState.equipment_changed.is_connected(_on_equipment_changed):
-		GameState.equipment_changed.connect(_on_equipment_changed)
 	EventBus.hud_refresh.emit()
-
-func _on_equipment_changed() -> void:
-	_refresh_outfit_billboard()
-
-func _ensure_outfit_billboard() -> void:
-	## World-space peek billboard slightly behind/left of the FPS capsule.
-	if _outfit_billboard != null and is_instance_valid(_outfit_billboard):
-		_refresh_outfit_billboard()
-		return
-	_outfit_billboard = Sprite3D.new()
-	_outfit_billboard.name = "OutfitBillboard"
-	_outfit_billboard.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	_outfit_billboard.shaded = false
-	_outfit_billboard.transparent = true
-	_outfit_billboard.double_sided = true
-	_outfit_billboard.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	_outfit_billboard.position = Vector3(-1.15, 1.0, 0.35)
-	_outfit_billboard.pixel_size = 0.0032
-	_outfit_billboard.modulate = Color(1, 1, 1, 0.92)
-	add_child(_outfit_billboard)
-	_refresh_outfit_billboard()
-
-func _refresh_outfit_billboard() -> void:
-	if _outfit_billboard == null or not is_instance_valid(_outfit_billboard):
-		return
-	var tex := DataManager.get_armor_texture(GameState.equipped_armor)
-	_outfit_billboard.texture = tex
-	if tex != null:
-		var tex_h := float(tex.get_height())
-		if tex_h > 0.0:
-			_outfit_billboard.pixel_size = 1.85 / tex_h
 
 func set_mobile_controls_active(active: bool) -> void:
 	mobile_controls_active = active
@@ -89,8 +56,11 @@ func set_mobile_controls_active(active: bool) -> void:
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 		touch_move = Vector2.ZERO
 		touch_firing = false
+		touch_melee_queued = false
 	else:
 		# Restore desktop capture when leaving touch mode (unless paused UI)
+		touch_firing = false
+		touch_melee_queued = false
 		mouse_captured = true
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
@@ -105,6 +75,10 @@ func apply_touch_look(relative_scaled: Vector2) -> void:
 
 func set_touch_firing(pressed: bool) -> void:
 	touch_firing = pressed
+
+func request_melee() -> void:
+	## Called by MobileControls on MELEE button_down (one-shot).
+	touch_melee_queued = true
 
 func _apply_stats_from_state() -> void:
 	max_health = GameState.get_max_health()
@@ -227,7 +201,12 @@ func _tick_combat(delta: float) -> void:
 			_finish_reload()
 		return
 
-	var firing := Input.is_action_pressed("fire") or touch_firing
+	# Mobile: only FIRE button (touch_firing). Desktop: mouse InputMap "fire".
+	var firing: bool
+	if mobile_controls_active:
+		firing = touch_firing
+	else:
+		firing = Input.is_action_pressed("fire")
 	if firing and fire_cooldown <= 0.0 and clip > 0:
 		_fire()
 	elif firing and clip <= 0 and ammo_reserve > 0:
@@ -236,7 +215,14 @@ func _tick_combat(delta: float) -> void:
 	if Input.is_action_just_pressed("reload") and not is_reloading:
 		_start_reload()
 
-	if Input.is_action_just_pressed("melee") and melee_cooldown <= 0.0:
+	# Mobile: only MELEE button via request_melee(). Desktop: keyboard/mouse melee action.
+	var want_melee := false
+	if mobile_controls_active:
+		want_melee = touch_melee_queued
+		touch_melee_queued = false
+	else:
+		want_melee = Input.is_action_just_pressed("melee")
+	if want_melee and melee_cooldown <= 0.0:
 		_do_melee()
 
 	# Consumables hotkeys 1-4
