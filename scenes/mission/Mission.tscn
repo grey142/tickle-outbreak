@@ -124,7 +124,7 @@ stretch_mode = 5
 mouse_filter = 2
 
 [node name="TickleFeedback" type="CanvasLayer" parent="."]
-layer = 8
+layer = 9
 script = ExtResource("6")
 
 [node name="GameOverUI" type="CanvasLayer" parent="."]

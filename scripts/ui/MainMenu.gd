@@ -7,9 +7,12 @@ extends Control
 @onready var touch_toggle: CheckButton = $Center/VBox/TouchControls
 
 var _cheats_panel: PanelContainer
+var _audio_unlocked: bool = false
 
 func _ready() -> void:
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	# Web browsers mute until a user gesture — prime AudioServer on first click/tap.
+	set_process_unhandled_input(true)
 	title.text = "TICKLE OUTBREAK"
 	blurb.text = "A first-person tickle-zombie survival FPS.\nTongue-in-cheek vertical slice for Godot 4.3+."
 	if touch_toggle:
@@ -19,6 +22,7 @@ func _ready() -> void:
 		)
 	_ensure_extra_buttons()
 	start_btn.pressed.connect(func():
+		_unlock_web_audio()
 		GameState.reset_run()
 		# Preserve touch toggle across reset_run
 		var keep_touch := touch_toggle.button_pressed if touch_toggle else GameState.force_mobile_controls
@@ -120,3 +124,31 @@ func _add_cheat_toggle(parent: VBoxContainer, label: String, flag: String, initi
 func _open_gallery() -> void:
 	GameState.gallery_return_scene = "res://scenes/main/MainMenu.tscn"
 	get_tree().change_scene_to_file("res://scenes/ui/Gallery.tscn")
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed:
+		_unlock_web_audio()
+	elif event is InputEventScreenTouch and event.pressed:
+		_unlock_web_audio()
+	elif event is InputEventKey and event.pressed:
+		_unlock_web_audio()
+
+func _unlock_web_audio() -> void:
+	# Any play() after a user gesture unlocks the Web Audio context.
+	if _audio_unlocked or not is_inside_tree():
+		return
+	_audio_unlocked = true
+	var p := AudioStreamPlayer.new()
+	p.bus = "Master"
+	p.volume_db = -80.0
+	var stream := load("res://assets/audio/giggle_01.ogg") as AudioStream
+	if stream:
+		p.stream = stream
+		add_child(p)
+		p.play()
+		get_tree().create_timer(0.05).timeout.connect(func():
+			if is_instance_valid(p):
+				p.stop()
+				p.queue_free()
+		)
+	set_process_unhandled_input(false)

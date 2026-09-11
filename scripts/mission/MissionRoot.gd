@@ -21,6 +21,11 @@ func _ready() -> void:
 	add_child(mission)
 	mission.start_mission(self, arena.spawn_points)
 
+	# Apocalyptic city + female zombie loops (Ambience bus).
+	var amb := MissionAmbience.new()
+	amb.name = "MissionAmbience"
+	add_child(amb)
+
 	# HUD / overlays are child scenes in Mission.tscn
 	var hud := get_node_or_null("HUD")
 	if hud and hud.has_method("bind_player"):

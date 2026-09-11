@@ -4,6 +4,7 @@ class_name TickleSystem
 ## Emits EventBus.tickle_pulse once per second while ≥1 zombie is actively tickling.
 
 const PULSE_INTERVAL := 1.0
+const DEBUG_PULSE := false
 
 var player: PlayerController
 var active_count: int = 0
@@ -64,6 +65,8 @@ func _update_pulse(delta: float, count: int, depleted: bool) -> void:
 		return
 	if _pulse_timer <= 0.0:
 		EventBus.tickle_pulse.emit(count, depleted)
+		if DEBUG_PULSE:
+			print("[TickleSystem] tickle_pulse count=%d depleted=%s" % [count, depleted])
 		_pulse_timer = PULSE_INTERVAL
 	else:
 		_pulse_timer -= delta
