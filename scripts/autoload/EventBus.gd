@@ -9,4 +9,5 @@ signal hit_registered(is_head: bool, by_melee: bool, damage: float)
 signal mission_progress(kills: int, quota: int)
 signal mission_cleared
 signal active_ticklers_changed(count: int, stamina_depleted: bool)
+signal tickle_pulse(active_count: int, stamina_depleted: bool)
 signal hud_refresh

@@ -13,7 +13,7 @@ First-person **tickle-zombie survival FPS** vertical slice for **Godot 4.3+**.
 - Browsers often require a **user gesture** before audio can play — tap/click the game once if sound is muted.
 - This Web build uses Godot’s **no-threads** export (no SharedArrayBuffer / COOP-COEP headers), so it works on stock GitHub Pages.
 
-Tongue-in-cheek tone; zombies use random billboard sprite variants; survivor **Olivia Grace** has outfit sprites per armor (hub shop preview) and **face reaction** sprites when tickled (`assets/survivor/faces/`). Simple FPS arms remain placeholders. Not pornographic — soft feet/stomach lore appears only in item descriptions.
+Tongue-in-cheek tone; zombies use random billboard sprite variants; survivor **Olivia Grace** has outfit sprites per armor (hub shop preview) and **face reaction** sprites when tickled (`assets/survivor/faces/`); while tickled, a soft pink full-screen flash + giggle SFX pulse once per second. Simple FPS arms remain placeholders. Not pornographic — soft feet/stomach lore appears only in item descriptions.
 
 ## Open & run (Godot editor)
 

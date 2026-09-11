@@ -1,10 +1,15 @@
 extends Node
 class_name TickleSystem
 ## Applies tickle DPS rules and tracks active ticklers for Olivia face reactions.
+## Emits EventBus.tickle_pulse once per second while ≥1 zombie is actively tickling.
+
+const PULSE_INTERVAL := 1.0
 
 var player: PlayerController
 var active_count: int = 0
 var _last_stamina_depleted: bool = false
+## Counts down to next flash/SFX; ≤0 means fire immediately on next tickling frame.
+var _pulse_timer: float = 0.0
 
 func setup(p: PlayerController) -> void:
 	player = p
@@ -15,6 +20,7 @@ func _physics_process(delta: float) -> void:
 			active_count = 0
 			_last_stamina_depleted = false
 			EventBus.active_ticklers_changed.emit(0, false)
+		_pulse_timer = 0.0
 		return
 	var total_dps := 0.0
 	var count := 0
@@ -37,6 +43,8 @@ func _physics_process(delta: float) -> void:
 			zombie.actively_tickling = false
 
 	# Apply damage first so stamina_depleted reflects this frame's drain.
+	# Infinite-health cheat skips HP loss inside apply_tickle_damage but contact
+	# still counts — pulse/flash feedback uses `count`, not actual HP drained.
 	if total_dps > 0.0:
 		player.apply_tickle_damage(total_dps, delta)
 		EventBus.player_tickled.emit(total_dps, count)
@@ -46,3 +54,16 @@ func _physics_process(delta: float) -> void:
 		active_count = count
 		_last_stamina_depleted = depleted
 		EventBus.active_ticklers_changed.emit(active_count, depleted)
+
+	_update_pulse(delta, count, depleted)
+
+func _update_pulse(delta: float, count: int, depleted: bool) -> void:
+	if count <= 0:
+		# Reset so the next tickle bout flashes soon (first pulse immediate).
+		_pulse_timer = 0.0
+		return
+	if _pulse_timer <= 0.0:
+		EventBus.tickle_pulse.emit(count, depleted)
+		_pulse_timer = PULSE_INTERVAL
+	else:
+		_pulse_timer -= delta
