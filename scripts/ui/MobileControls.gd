@@ -1,34 +1,44 @@
 extends CanvasLayer
 class_name MobileControls
-## Landscape phone touch controls: D-pad move, swipe look, right action cluster.
+## Landscape phone touch controls: D-pad move, vertical right action strip, look joystick.
 
 signal mobile_visibility_changed(shown: bool)
 
-@export var look_sensitivity: float = 0.002
+## Radians per second at full look-stick deflection (from player_stats touch_look_sensitivity).
+@export var look_sensitivity: float = 2.8
 
 var player: PlayerController
 var _shown: bool = false
 
 var _root: Control
-var _look_zone: Control
 var _hint: Label
 
-var _look_touch_idx: int = -1
 var _fwd_held: bool = false
 var _back_held: bool = false
 var _left_held: bool = false
 var _right_held: bool = false
 var _touch_move: Vector2 = Vector2.ZERO
-var _look_avg: Vector2 = Vector2.ZERO
+
+## Look joystick state (separate touch index from D-pad / actions).
+var _look_stick_active: bool = false
+var _look_stick_touch_idx: int = -1
+var _look_stick_vec: Vector2 = Vector2.ZERO
+var _look_base: Control
+var _look_knob: Control
+var _look_hit: Control
+var _look_base_center: Vector2 = Vector2.ZERO
+const LOOK_STICK_RADIUS := 72.0
+const LOOK_DEADZONE := 0.15
+## Synthetic mouse index when emulating touch from mouse on desktop.
+const LOOK_MOUSE_IDX := 1001
 ## Active real screen touches (web mouse-emulation must not fight these).
 var _screen_touches: int = 0
-const LOOK_DELTA_CLAMP := 48.0
 
-const DPAD_BTN := Vector2(96, 96)
-const ACTION_BIG := Vector2(116, 116)
-const ACTION_MED := Vector2(106, 86)
-const ACTION_SM := Vector2(96, 72)
-const CONSUMABLE := Vector2(82, 62)
+const DPAD_BTN := Vector2(88, 88)
+const ACTION_BIG := Vector2(100, 56)
+const ACTION_MED := Vector2(96, 48)
+const ACTION_SM := Vector2(92, 44)
+const CONSUMABLE := Vector2(84, 36)
 
 func _ready() -> void:
 	layer = 5
@@ -43,28 +53,29 @@ func bind_player(p: PlayerController) -> void:
 	player = p
 	_apply_player_mobile_mode()
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	var want := _should_show()
 	if want != _shown:
 		_set_shown(want)
+	# Rate-based look while stick is deflected (works with D-pad multitouch).
+	if _shown and _look_stick_active and _look_stick_vec.length_squared() > 0.0001:
+		if player and is_instance_valid(player):
+			player.apply_touch_look(_look_stick_vec * look_sensitivity * delta)
 
 func _input(event: InputEvent) -> void:
-	## Count real screen touches globally (even when they begin on buttons) so web
-	## mouse-emulation cannot yank the camera while another finger holds move/fire.
+	## Count real screen touches globally so web mouse-emulation cannot yank the camera.
 	if not _shown:
 		return
 	if event is InputEventScreenTouch:
 		var st := event as InputEventScreenTouch
 		if st.pressed:
 			_screen_touches += 1
-			if _look_touch_idx == 1001:
-				_look_touch_idx = -1
-				_look_avg = Vector2.ZERO
+			if _look_stick_touch_idx == LOOK_MOUSE_IDX:
+				_reset_look_stick()
 		else:
 			_screen_touches = maxi(_screen_touches - 1, 0)
-			if st.index == _look_touch_idx:
-				_look_touch_idx = -1
-				_look_avg = Vector2.ZERO
+			if st.index == _look_stick_touch_idx:
+				_reset_look_stick()
 
 func is_active() -> bool:
 	return _shown
@@ -100,10 +111,8 @@ func _apply_player_mobile_mode() -> void:
 		_right_held = false
 		player.set_touch_move(Vector2.ZERO)
 		player.set_touch_firing(false)
-		_look_touch_idx = -1
-		_look_avg = Vector2.ZERO
+		_reset_look_stick()
 		_screen_touches = 0
-		# Clear any queued melee / synthetic InputMap presses
 		_release_all_actions()
 
 func _build_ui() -> void:
@@ -141,28 +150,21 @@ func _build_ui() -> void:
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	margin.add_child(fill)
 
-	# Full-screen look layer under buttons. Multitouch safety is in _input + _point_allows_look
-	# (buttons on top still receive their own fingers; mouse-emulation is ignored while touches > 0).
-	_look_zone = ColorRect.new()
-	_look_zone.name = "LookZone"
-	_look_zone.color = Color(0, 0, 0, 0)
-	_look_zone.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_look_zone.mouse_filter = Control.MOUSE_FILTER_STOP
-	_look_zone.gui_input.connect(_on_look_gui_input)
-	fill.add_child(_look_zone)
+	# Full-screen LookZone removed as primary look — inert leftover omitted.
+	# Look is exclusively via the bottom-right look joystick.
 
 	_build_dpad(fill)
-	_build_actions(fill)
+	_build_right_strip(fill)
 
 	_hint = Label.new()
 	_hint.name = "TouchHint"
-	_hint.text = "D-pad move · swipe look · FIRE / MELEE / DASH"
+	_hint.text = "D-pad move · look stick (BR) · right-edge actions"
 	_hint.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	_hint.anchor_left = 1.0
 	_hint.anchor_right = 1.0
 	_hint.anchor_top = 0.0
 	_hint.anchor_bottom = 0.0
-	_hint.offset_left = -460.0
+	_hint.offset_left = -480.0
 	_hint.offset_top = 8.0
 	_hint.offset_right = -8.0
 	_hint.offset_bottom = 36.0
@@ -220,7 +222,6 @@ func _make_dpad_button(symbol: String, _tag: String) -> Button:
 	normal.bg_color = Color(0.1, 0.12, 0.18, 0.55)
 	normal.border_color = Color(1, 1, 1, 0.45)
 	normal.set_border_width_all(2)
-	# Fully circular (half of square button size)
 	normal.set_corner_radius_all(int(DPAD_BTN.x * 0.5))
 	var pressed := normal.duplicate()
 	pressed.bg_color = Color(0.28, 0.48, 0.8, 0.8)
@@ -276,86 +277,209 @@ func _recompute_move() -> void:
 	_touch_move = v
 	_push_move()
 
-func _build_actions(fill: Control) -> void:
-	## Right / bottom-right: Dash above; Fire + Melee prominent; Reload smaller; consumables strip.
+func _build_right_strip(fill: Control) -> void:
+	## Right-edge vertical action wall + look joystick under it (bottom-right).
+	var stick_size := LOOK_STICK_RADIUS * 2.0 + 8.0
+	var strip_w := 120.0
+
+	var column := VBoxContainer.new()
+	column.name = "RightStrip"
+	column.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	column.anchor_left = 1.0
+	column.anchor_right = 1.0
+	column.anchor_top = 1.0
+	column.anchor_bottom = 1.0
+	column.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	column.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	column.offset_left = -strip_w - 4.0
+	column.offset_top = -520.0
+	column.offset_right = -4.0
+	column.offset_bottom = -4.0
+	column.add_theme_constant_override("separation", 4)
+	column.alignment = BoxContainer.ALIGNMENT_END
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fill.add_child(column)
+
+	# Action buttons stacked along the right edge (thumb-reachable).
 	var actions := VBoxContainer.new()
 	actions.name = "Actions"
-	actions.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	actions.anchor_left = 1.0
-	actions.anchor_right = 1.0
-	actions.anchor_top = 1.0
-	actions.anchor_bottom = 1.0
-	actions.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	actions.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	actions.offset_left = -400.0
-	actions.offset_top = -440.0
-	actions.offset_right = -6.0
-	actions.offset_bottom = -6.0
-	actions.add_theme_constant_override("separation", 10)
+	actions.add_theme_constant_override("separation", 4)
 	actions.alignment = BoxContainer.ALIGNMENT_END
+	actions.size_flags_horizontal = Control.SIZE_SHRINK_END
 	actions.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	fill.add_child(actions)
+	column.add_child(actions)
 
-	# Dash above the fire/melee cluster
-	var dash_row := HBoxContainer.new()
-	dash_row.add_theme_constant_override("separation", 10)
-	dash_row.alignment = BoxContainer.ALIGNMENT_END
-	actions.add_child(dash_row)
-	var btn_dash := _make_action_button("DASH", ACTION_MED, false)
-	_wire_action_button(btn_dash, "dash")
-	dash_row.add_child(btn_dash)
-
-	# Fire + Melee prominent
-	var combat_row := HBoxContainer.new()
-	combat_row.add_theme_constant_override("separation", 12)
-	combat_row.alignment = BoxContainer.ALIGNMENT_END
-	actions.add_child(combat_row)
 	var btn_fire := _make_action_button("FIRE", ACTION_BIG, true)
 	btn_fire.button_down.connect(func(): _set_firing(true))
 	btn_fire.button_up.connect(func(): _set_firing(false))
-	combat_row.add_child(btn_fire)
+	actions.add_child(btn_fire)
+
 	var btn_melee := _make_action_button("MELEE", ACTION_BIG, true)
 	btn_melee.button_down.connect(_on_melee_pressed)
-	combat_row.add_child(btn_melee)
+	actions.add_child(btn_melee)
 
-	# Reload (+ small jump) near cluster
-	var util_row := HBoxContainer.new()
-	util_row.add_theme_constant_override("separation", 10)
-	util_row.alignment = BoxContainer.ALIGNMENT_END
-	actions.add_child(util_row)
+	var btn_dash := _make_action_button("DASH", ACTION_MED, false)
+	_wire_action_button(btn_dash, "dash")
+	actions.add_child(btn_dash)
+
 	var btn_reload := _make_action_button("RELOAD", ACTION_SM, false)
 	_wire_action_button(btn_reload, "reload")
-	util_row.add_child(btn_reload)
+	actions.add_child(btn_reload)
+
 	var btn_jump := _make_action_button("JUMP", ACTION_SM, false)
 	_wire_action_button(btn_jump, "jump")
-	util_row.add_child(btn_jump)
+	actions.add_child(btn_jump)
 
-	# Compact consumables strip
-	var cons_row := HBoxContainer.new()
-	cons_row.add_theme_constant_override("separation", 8)
-	cons_row.alignment = BoxContainer.ALIGNMENT_END
-	actions.add_child(cons_row)
 	for pair in [["HP", "use_health"], ["NRG", "use_energy"], ["AMMO", "use_ammo"], ["ALC", "use_alcohol"]]:
 		var btn := _make_action_button(pair[0], CONSUMABLE, false)
 		_wire_action_button(btn, pair[1])
-		cons_row.add_child(btn)
+		actions.add_child(btn)
+
+	# Look joystick under the wall strip (bottom-right).
+	_build_look_joystick(column, stick_size)
+
+func _build_look_joystick(parent: Control, stick_size: float) -> void:
+	var wrap := Control.new()
+	wrap.name = "LookJoystick"
+	wrap.custom_minimum_size = Vector2(stick_size, stick_size)
+	wrap.size_flags_horizontal = Control.SIZE_SHRINK_END
+	wrap.mouse_filter = Control.MOUSE_FILTER_STOP
+	parent.add_child(wrap)
+
+	# Rounded base (ColorRect/Panel with proper mouse_filter IGNORE — hit layer catches input).
+	_look_base = Panel.new()
+	_look_base.name = "Base"
+	_look_base.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_look_base.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var base_style := StyleBoxFlat.new()
+	base_style.bg_color = Color(0.1, 0.12, 0.18, 0.55)
+	base_style.border_color = Color(1, 1, 1, 0.4)
+	base_style.set_border_width_all(2)
+	base_style.set_corner_radius_all(int(LOOK_STICK_RADIUS))
+	_look_base.add_theme_stylebox_override("panel", base_style)
+	wrap.add_child(_look_base)
+
+	var knob_r := LOOK_STICK_RADIUS * 0.42
+	_look_knob = Panel.new()
+	_look_knob.name = "Knob"
+	_look_knob.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_look_knob.custom_minimum_size = Vector2(knob_r * 2.0, knob_r * 2.0)
+	_look_knob.size = Vector2(knob_r * 2.0, knob_r * 2.0)
+	var knob_style := StyleBoxFlat.new()
+	knob_style.bg_color = Color(0.35, 0.55, 0.9, 0.75)
+	knob_style.border_color = Color(1, 1, 1, 0.65)
+	knob_style.set_border_width_all(2)
+	knob_style.set_corner_radius_all(int(knob_r))
+	_look_knob.add_theme_stylebox_override("panel", knob_style)
+	wrap.add_child(_look_knob)
+
+	# Hit target receives multitouch / mouse for look stick only.
+	_look_hit = Control.new()
+	_look_hit.name = "Hit"
+	_look_hit.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_look_hit.mouse_filter = Control.MOUSE_FILTER_STOP
+	_look_hit.gui_input.connect(_on_look_stick_gui_input)
+	wrap.add_child(_look_hit)
+
+	# Center knob after layout
+	wrap.resized.connect(func():
+		_look_base_center = wrap.size * 0.5
+		_center_look_knob()
+	)
+	# Initial center once in tree
+	call_deferred("_deferred_center_look_knob", wrap)
+
+func _deferred_center_look_knob(wrap: Control) -> void:
+	if not is_instance_valid(wrap):
+		return
+	_look_base_center = wrap.size * 0.5
+	if _look_base_center.length_squared() < 1.0:
+		_look_base_center = Vector2(LOOK_STICK_RADIUS + 4.0, LOOK_STICK_RADIUS + 4.0)
+	_center_look_knob()
+
+func _center_look_knob() -> void:
+	if _look_knob == null:
+		return
+	var half := _look_knob.size * 0.5
+	_look_knob.position = _look_base_center - half
+
+func _reset_look_stick() -> void:
+	_look_stick_active = false
+	_look_stick_touch_idx = -1
+	_look_stick_vec = Vector2.ZERO
+	_center_look_knob()
+
+func _on_look_stick_gui_input(event: InputEvent) -> void:
+	if not _shown:
+		return
+	if event is InputEventScreenTouch:
+		var st := event as InputEventScreenTouch
+		if st.pressed:
+			if _look_stick_touch_idx == LOOK_MOUSE_IDX:
+				_reset_look_stick()
+			if _look_stick_touch_idx < 0:
+				_look_stick_touch_idx = st.index
+				_look_stick_active = true
+				_update_look_stick_from_local(st.position)
+				_look_hit.accept_event()
+		elif st.index == _look_stick_touch_idx:
+			_reset_look_stick()
+			_look_hit.accept_event()
+	elif event is InputEventScreenDrag:
+		var sd := event as InputEventScreenDrag
+		if sd.index == _look_stick_touch_idx:
+			_update_look_stick_from_local(sd.position)
+			_look_hit.accept_event()
+	elif _screen_touches == 0 and event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_LEFT:
+			if mb.pressed and _look_stick_touch_idx < 0:
+				_look_stick_touch_idx = LOOK_MOUSE_IDX
+				_look_stick_active = true
+				_update_look_stick_from_local(mb.position)
+				_look_hit.accept_event()
+			elif not mb.pressed and _look_stick_touch_idx == LOOK_MOUSE_IDX:
+				_reset_look_stick()
+				_look_hit.accept_event()
+	elif _screen_touches == 0 and event is InputEventMouseMotion and _look_stick_touch_idx == LOOK_MOUSE_IDX:
+		var mm := event as InputEventMouseMotion
+		_update_look_stick_from_local(mm.position)
+		_look_hit.accept_event()
+
+func _update_look_stick_from_local(local_pos: Vector2) -> void:
+	var offset := local_pos - _look_base_center
+	var max_r := LOOK_STICK_RADIUS
+	if offset.length() > max_r:
+		offset = offset.limit_length(max_r)
+	# Visual knob follows finger within radius
+	if _look_knob:
+		var half := _look_knob.size * 0.5
+		_look_knob.position = _look_base_center + offset - half
+	var n := offset / max_r
+	var mag := n.length()
+	if mag < LOOK_DEADZONE:
+		_look_stick_vec = Vector2.ZERO
+	else:
+		# Remap deadzone → 1.0 so leaving deadzone starts from 0
+		var remapped := (mag - LOOK_DEADZONE) / (1.0 - LOOK_DEADZONE)
+		_look_stick_vec = n.normalized() * clampf(remapped, 0.0, 1.0)
 
 func _make_action_button(label: String, min_size: Vector2, emphasize: bool) -> Button:
 	var b := Button.new()
 	b.text = label
 	b.custom_minimum_size = min_size
 	b.focus_mode = Control.FOCUS_NONE
+	b.size_flags_horizontal = Control.SIZE_SHRINK_END
 	var normal := StyleBoxFlat.new()
 	normal.bg_color = Color(0.12, 0.14, 0.2, 0.58 if emphasize else 0.42)
 	normal.border_color = Color(1, 1, 1, 0.6 if emphasize else 0.35)
 	normal.set_border_width_all(2)
-	# Pill / near-circle: radius = half of shorter side
 	var radius := int(minf(min_size.x, min_size.y) * 0.5)
 	normal.set_corner_radius_all(radius)
-	normal.content_margin_left = 10
-	normal.content_margin_right = 10
-	normal.content_margin_top = 8
-	normal.content_margin_bottom = 8
+	normal.content_margin_left = 8
+	normal.content_margin_right = 8
+	normal.content_margin_top = 6
+	normal.content_margin_bottom = 6
 	var pressed := normal.duplicate()
 	pressed.bg_color = Color(0.25, 0.45, 0.75, 0.78)
 	var hover := normal.duplicate()
@@ -364,7 +488,7 @@ func _make_action_button(label: String, min_size: Vector2, emphasize: bool) -> B
 	b.add_theme_stylebox_override("pressed", pressed)
 	b.add_theme_stylebox_override("hover", hover)
 	b.add_theme_stylebox_override("focus", normal)
-	b.add_theme_font_size_override("font_size", 22 if emphasize else 16)
+	b.add_theme_font_size_override("font_size", 18 if emphasize else 13)
 	return b
 
 func _wire_action_button(btn: Button, action: String) -> void:
@@ -380,7 +504,7 @@ func _wire_action_button(btn: Button, action: String) -> void:
 	)
 
 func _set_firing(pressed: bool) -> void:
-	# Prefer touch_firing only — do not synthesize InputMap "fire" (LookZone / mouse LMB shares that action).
+	# Prefer touch_firing only — do not synthesize InputMap "fire".
 	if player and is_instance_valid(player):
 		player.set_touch_firing(pressed)
 
@@ -396,74 +520,3 @@ func _release_all_actions() -> void:
 func _push_move() -> void:
 	if player and is_instance_valid(player):
 		player.set_touch_move(_touch_move)
-
-func _on_look_gui_input(event: InputEvent) -> void:
-	if not _shown:
-		return
-	# Real multitouch path — never mix with mouse emulation while fingers are down.
-	if event is InputEventScreenTouch:
-		var st := event as InputEventScreenTouch
-		if st.pressed:
-			# Touch counting is in _input; here only claim a look finger.
-			if _look_touch_idx == 1001:
-				_look_touch_idx = -1
-				_look_avg = Vector2.ZERO
-			if _look_touch_idx < 0 and _point_allows_look(st.position):
-				_look_touch_idx = st.index
-				_look_avg = Vector2.ZERO
-				_look_zone.accept_event()
-		elif st.index == _look_touch_idx:
-			_look_touch_idx = -1
-			_look_avg = Vector2.ZERO
-			_look_zone.accept_event()
-	elif event is InputEventScreenDrag:
-		var sd := event as InputEventScreenDrag
-		if sd.index == _look_touch_idx:
-			_apply_look(sd.relative)
-			_look_zone.accept_event()
-	# Mouse / single-finger desktop test only when no real screen touches.
-	elif _screen_touches == 0 and event is InputEventMouseButton:
-		var mb := event as InputEventMouseButton
-		if mb.button_index == MOUSE_BUTTON_LEFT:
-			if mb.pressed and _look_touch_idx < 0 and _point_allows_look(mb.position):
-				_look_touch_idx = 1001
-				_look_avg = Vector2.ZERO
-				_look_zone.accept_event()
-			elif not mb.pressed and _look_touch_idx == 1001:
-				_look_touch_idx = -1
-				_look_avg = Vector2.ZERO
-				_look_zone.accept_event()
-	elif _screen_touches == 0 and event is InputEventMouseMotion and _look_touch_idx == 1001:
-		var mm := event as InputEventMouseMotion
-		_apply_look(mm.relative)
-		_look_zone.accept_event()
-
-func _point_allows_look(local_pos: Vector2) -> bool:
-	## local_pos is in LookZone space; zone is already inset, so any press here is OK
-	## unless a button is somehow on top (safety check via viewport).
-	var global_pt := _look_zone.global_position + local_pos
-	var hovered := get_viewport().gui_get_hovered_control()
-	if hovered != null and hovered is BaseButton:
-		return false
-	# Also reject if clearly over D-pad / action clusters in screen space.
-	var vp := get_viewport().get_visible_rect().size
-	if vp.x <= 1.0 or vp.y <= 1.0:
-		return true
-	var nx := global_pt.x / vp.x
-	var ny := global_pt.y / vp.y
-	# Bottom-left D-pad
-	if nx < 0.34 and ny > 0.55:
-		return false
-	# Bottom-right actions
-	if nx > 0.66 and ny > 0.40:
-		return false
-	return true
-
-func _apply_look(relative: Vector2) -> void:
-	# Clamp spike deltas from multitouch / mouse-emulation jumps, then smooth.
-	var clamped := relative.limit_length(LOOK_DELTA_CLAMP)
-	_look_avg = _look_avg.lerp(clamped, 0.45)
-	var smoothed := _look_avg
-	_look_avg *= 0.55
-	if player and is_instance_valid(player):
-		player.apply_touch_look(smoothed * look_sensitivity)
