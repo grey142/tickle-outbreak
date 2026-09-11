@@ -16,6 +16,8 @@ var speed_stat: float = 25.0
 var slow_on_tickle: float = 0.0
 var flee_timer: float = 0.0
 var is_fleeing: bool = false
+var tickle_hold_timer: float = 0.0  ## time spent continuously tickling before flee
+var _was_tickling: bool = false
 var last_hit_melee: bool = false
 var actively_tickling: bool = false
 var label: Label3D
@@ -182,14 +184,35 @@ func _physics_process(delta: float) -> void:
 	var spd := speed_stat * speed_scale
 
 	if behavior == "tickle_and_run":
+		# Stay on the player and tickle for flee_after_tickle_sec, THEN run away.
 		if is_fleeing:
 			flee_timer -= delta
 			dir = -dir
+			tickle_hold_timer = 0.0
+			_was_tickling = false
 			if flee_timer <= 0.0:
 				is_fleeing = false
 		elif actively_tickling:
-			is_fleeing = true
-			flee_timer = float(def.get("flee_after_tickle_sec", 1.5))
+			if not _was_tickling:
+				tickle_hold_timer = 0.0
+			_was_tickling = true
+			tickle_hold_timer += delta
+			# Stick to the player while tickling (don't back off yet).
+			if dist > 0.35:
+				spd *= 0.55  # ease in if slightly out of range
+			else:
+				dir = Vector3.ZERO  # stand on them and tickle
+				spd = 0.0
+			var hold := float(def.get("flee_after_tickle_sec", 1.5))
+			if tickle_hold_timer >= hold:
+				is_fleeing = true
+				flee_timer = float(def.get("flee_duration_sec", 2.0))
+				tickle_hold_timer = 0.0
+				_was_tickling = false
+		else:
+			# Broke contact — reset hold so they must tickle a full 1.5s next time.
+			tickle_hold_timer = 0.0
+			_was_tickling = false
 
 	if behavior == "scream":
 		# Lurk slowly toward player but prioritize presence
