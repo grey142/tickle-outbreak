@@ -20,6 +20,9 @@ var _left_held: bool = false
 var _right_held: bool = false
 var _touch_move: Vector2 = Vector2.ZERO
 var _look_avg: Vector2 = Vector2.ZERO
+## Active real screen touches (web mouse-emulation must not fight these).
+var _screen_touches: int = 0
+const LOOK_DELTA_CLAMP := 48.0
 
 const DPAD_BTN := Vector2(96, 96)
 const ACTION_BIG := Vector2(116, 116)
@@ -79,6 +82,9 @@ func _apply_player_mobile_mode() -> void:
 		_right_held = false
 		player.set_touch_move(Vector2.ZERO)
 		player.set_touch_firing(false)
+		_look_touch_idx = -1
+		_look_avg = Vector2.ZERO
+		_screen_touches = 0
 		# Clear any queued melee / synthetic InputMap presses
 		_release_all_actions()
 
@@ -117,11 +123,20 @@ func _build_ui() -> void:
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	margin.add_child(fill)
 
-	# Full-screen look zone behind all buttons — press+drag on empty area looks; does not fire.
+	# Look zone avoids bottom-left D-pad and bottom-right actions so multitouch
+	# move/fire fingers never start a look drag (fixes camera shake on phones/web).
 	_look_zone = ColorRect.new()
 	_look_zone.name = "LookZone"
 	_look_zone.color = Color(0, 0, 0, 0)
-	_look_zone.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_look_zone.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_look_zone.anchor_left = 0.28
+	_look_zone.anchor_right = 0.62
+	_look_zone.anchor_top = 0.0
+	_look_zone.anchor_bottom = 0.72
+	_look_zone.offset_left = 0.0
+	_look_zone.offset_right = 0.0
+	_look_zone.offset_top = 0.0
+	_look_zone.offset_bottom = 0.0
 	_look_zone.mouse_filter = Control.MOUSE_FILTER_STOP
 	_look_zone.gui_input.connect(_on_look_gui_input)
 	fill.add_child(_look_zone)
@@ -375,38 +390,73 @@ func _push_move() -> void:
 func _on_look_gui_input(event: InputEvent) -> void:
 	if not _shown:
 		return
-	# Looking never fires — only apply_touch_look on drag.
+	# Real multitouch path — never mix with mouse emulation while fingers are down.
 	if event is InputEventScreenTouch:
 		var st := event as InputEventScreenTouch
-		if st.pressed and _look_touch_idx < 0:
-			_look_touch_idx = st.index
-			_look_zone.accept_event()
-		elif not st.pressed and st.index == _look_touch_idx:
-			_look_touch_idx = -1
-			_look_zone.accept_event()
+		if st.pressed:
+			_screen_touches = maxi(_screen_touches + 1, 1)
+			# Cancel mouse-emulated look; finger index owns look exclusively.
+			if _look_touch_idx == 1001:
+				_look_touch_idx = -1
+				_look_avg = Vector2.ZERO
+			if _look_touch_idx < 0 and _point_allows_look(st.position):
+				_look_touch_idx = st.index
+				_look_avg = Vector2.ZERO
+				_look_zone.accept_event()
+		else:
+			_screen_touches = maxi(_screen_touches - 1, 0)
+			if st.index == _look_touch_idx:
+				_look_touch_idx = -1
+				_look_avg = Vector2.ZERO
+				_look_zone.accept_event()
 	elif event is InputEventScreenDrag:
 		var sd := event as InputEventScreenDrag
 		if sd.index == _look_touch_idx:
 			_apply_look(sd.relative)
 			_look_zone.accept_event()
-	elif event is InputEventMouseButton:
+	# Mouse / single-finger desktop test only when no real screen touches.
+	elif _screen_touches == 0 and event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_LEFT:
-			if mb.pressed and _look_touch_idx < 0:
+			if mb.pressed and _look_touch_idx < 0 and _point_allows_look(mb.position):
 				_look_touch_idx = 1001
+				_look_avg = Vector2.ZERO
 				_look_zone.accept_event()
 			elif not mb.pressed and _look_touch_idx == 1001:
 				_look_touch_idx = -1
+				_look_avg = Vector2.ZERO
 				_look_zone.accept_event()
-	elif event is InputEventMouseMotion and _look_touch_idx == 1001:
+	elif _screen_touches == 0 and event is InputEventMouseMotion and _look_touch_idx == 1001:
 		var mm := event as InputEventMouseMotion
 		_apply_look(mm.relative)
 		_look_zone.accept_event()
 
+func _point_allows_look(local_pos: Vector2) -> bool:
+	## local_pos is in LookZone space; zone is already inset, so any press here is OK
+	## unless a button is somehow on top (safety check via viewport).
+	var global_pt := _look_zone.global_position + local_pos
+	var hovered := get_viewport().gui_get_hovered_control()
+	if hovered != null and hovered is BaseButton:
+		return false
+	# Also reject if clearly over D-pad / action clusters in screen space.
+	var vp := get_viewport().get_visible_rect().size
+	if vp.x <= 1.0 or vp.y <= 1.0:
+		return true
+	var nx := global_pt.x / vp.x
+	var ny := global_pt.y / vp.y
+	# Bottom-left D-pad
+	if nx < 0.34 and ny > 0.55:
+		return false
+	# Bottom-right actions
+	if nx > 0.66 and ny > 0.40:
+		return false
+	return true
+
 func _apply_look(relative: Vector2) -> void:
-	# Exponential smooth on raw swipe deltas before sensitivity — less twitchy.
-	_look_avg = _look_avg.lerp(relative, 0.55)
+	# Clamp spike deltas from multitouch / mouse-emulation jumps, then smooth.
+	var clamped := relative.limit_length(LOOK_DELTA_CLAMP)
+	_look_avg = _look_avg.lerp(clamped, 0.45)
 	var smoothed := _look_avg
-	_look_avg *= 0.65
+	_look_avg *= 0.55
 	if player and is_instance_valid(player):
 		player.apply_touch_look(smoothed * look_sensitivity)
