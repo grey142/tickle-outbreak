@@ -21,11 +21,11 @@
     {
       "id": "bullets",
       "name": "Bullets",
-      "effect": "refill_ammo",
-      "value": 1.0,
+      "effect": "add_ammo",
+      "value": 25,
       "shop_cost": 5,
       "max_per_mission": 99,
-      "description": "Refills ammo to capacity for the equipped gun. Cheap coin sink (5)."
+      "description": "Pack of 25 bullets."
     },
     {
       "id": "alcohol",

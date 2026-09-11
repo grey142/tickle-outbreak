@@ -39,7 +39,7 @@ godot --path /path/to/tickle-outbreak
 | Melee | F |
 | Health potion | 1 |
 | Energy drink | 2 |
-| Bullets refill | 3 |
+| Bullets (pack of 25) | 3 |
 | Alcohol | 4 |
 | Toggle mouse capture | Esc |
 
@@ -86,7 +86,7 @@ Desktop keyboard/mouse keep working when the touch overlay is hidden.
 ## Loop
 
 1. **Main Menu** → New Run (starts with 100 coins for shop testing), **Gallery / Compendium**, or **CHEATS**.
-2. **Hub** — **Missions** tab to select/replay unlocked missions for coin farming; buy/equip guns, melee, armor; upgrades; consumables (bullets cost **5**).
+2. **Hub** — **Missions** tab to select/replay unlocked missions for coin farming; buy/equip guns, melee, armor; upgrades; consumables (bullets: pack of **25** for **5** coins).
 3. **Deploy** → city-block mission arena. Kill quota scales with the **selected** mission number. Meta (coins/gear/upgrades) is kept on replay.
 4. Clear → hub unlocks the next frontier mission (`highest_mission_unlocked`); replaying an older mission does not lock you out. Health 0 → **Tickle Infected** game over (retry or hub).
 5. **Gallery** — zombie compendium (stats + 3 sprite variants) and tickle-scene mockups; unlocks when campaign frontier reaches each type’s `unlock_mission`.

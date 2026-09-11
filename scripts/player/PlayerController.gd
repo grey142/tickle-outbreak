@@ -366,6 +366,10 @@ func _try_consumable(id: String) -> void:
 			ammo_reserve = GameState.get_ammo_capacity()
 			var clip_size := int(_gun.get("clip_size", 12))
 			clip = clip_size
+		"add_ammo":
+			var add := int(def.get("value", 25))
+			var cap := GameState.get_ammo_capacity()
+			ammo_reserve = mini(ammo_reserve + add, cap)
 		"alcohol_rng":
 			GameState.apply_alcohol_drink()
 	EventBus.hud_refresh.emit()
