@@ -1,15 +1,20 @@
 extends Node
 class_name TickleSystem
-## Applies tickle DPS rules and tracks active ticklers for cinematic overlay.
+## Applies tickle DPS rules and tracks active ticklers for Olivia face reactions.
 
 var player: PlayerController
 var active_count: int = 0
+var _last_stamina_depleted: bool = false
 
 func setup(p: PlayerController) -> void:
 	player = p
 
 func _physics_process(delta: float) -> void:
 	if player == null or not is_instance_valid(player) or not player.is_alive():
+		if active_count != 0:
+			active_count = 0
+			_last_stamina_depleted = false
+			EventBus.active_ticklers_changed.emit(0, false)
 		return
 	var total_dps := 0.0
 	var count := 0
@@ -31,10 +36,13 @@ func _physics_process(delta: float) -> void:
 		else:
 			zombie.actively_tickling = false
 
-	if count != active_count:
-		active_count = count
-		EventBus.active_ticklers_changed.emit(active_count)
-
+	# Apply damage first so stamina_depleted reflects this frame's drain.
 	if total_dps > 0.0:
 		player.apply_tickle_damage(total_dps, delta)
 		EventBus.player_tickled.emit(total_dps, count)
+
+	var depleted := player.stamina <= 0.0
+	if count != active_count or depleted != _last_stamina_depleted:
+		active_count = count
+		_last_stamina_depleted = depleted
+		EventBus.active_ticklers_changed.emit(active_count, depleted)

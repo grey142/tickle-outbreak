@@ -13,7 +13,7 @@ First-person **tickle-zombie survival FPS** vertical slice for **Godot 4.3+**.
 - Browsers often require a **user gesture** before audio can play — tap/click the game once if sound is muted.
 - This Web build uses Godot’s **no-threads** export (no SharedArrayBuffer / COOP-COEP headers), so it works on stock GitHub Pages.
 
-Tongue-in-cheek tone; zombies use random billboard sprite variants; survivor **Olivia Grace** has outfit sprites per armor (hub shop preview). Simple FPS arms remain placeholders. Not pornographic — soft feet/stomach lore appears only in item descriptions.
+Tongue-in-cheek tone; zombies use random billboard sprite variants; survivor **Olivia Grace** has outfit sprites per armor (hub shop preview) and **face reaction** sprites when tickled (`assets/survivor/faces/`). Simple FPS arms remain placeholders. Not pornographic — soft feet/stomach lore appears only in item descriptions.
 
 ## Open & run (Godot editor)
 
@@ -48,7 +48,7 @@ godot --path /path/to/tickle-outbreak
 On Android/iOS, or when a touchscreen is available, missions show an on-screen **landscape** control overlay (`MobileControls`):
 
 ```
-[Tickle cinematic square]  [==== Health bar (top) ====]  [ammo/mission…]
+[Olivia face panel]  [==== Health bar (top) ====]  [ammo/mission…]
                            [==== Stamina (secondary) ==]
 
 [ D-pad: ▲ ▼ ◀ ▶ ]                              [DASH]
@@ -67,8 +67,8 @@ On Android/iOS, or when a touchscreen is available, missions show an on-screen *
 | **DASH** (stacked above fire/melee) | Tap |
 | **RELOAD** / **JUMP** (smaller, near cluster) | Tap |
 | HP / NRG / AMMO / ALC | Compact consumables strip |
-| Top health (+ stamina) | Primary bars; leave room for cinematic |
-| Top-left **tickle cinematic** square | Stacked tickler silhouettes (1–5) when tickling |
+| Top health (+ stamina) | Primary bars; leave room for face panel |
+| Top-left **Olivia face** panel | Large face reaction (1–5 intensity; tired/tears when stamina depleted) |
 
 Display defaults: `sensor_landscape` orientation, stretch `canvas_items` + `expand` aspect so phones fill the screen while desktop stays usable.
 
@@ -112,7 +112,7 @@ All tunable numbers live under `data/*.json` (guns, melee, armor, consumables, z
 assets/survivor/ Olivia Grace outfit PNGs (one per armor id)
 assets/zombies/  Per-type PNG sprite variants (3 each)
 data/           JSON balance tables
-scenes/         MainMenu, Hub, Mission (+ embedded HUD/cinematic/game over/mobile controls)
+scenes/         MainMenu, Hub, Mission (+ embedded HUD/Olivia face/game over/mobile controls)
 scripts/
   autoload/     DataManager, GameState, EventBus
   player/       FPS controller + combat (+ touch move/look/fire APIs)
@@ -120,13 +120,13 @@ scripts/
   systems/      TickleSystem
   mission/      ArenaBuilder, MissionManager, MissionRoot
   hub/          Shop UI
-  ui/           HUD, MobileControls, cinematic overlay, menus, Gallery
+  ui/           HUD, MobileControls, Olivia face reaction, menus, Gallery
 ```
 
 
 ## Zombie sprite variants
 
-Each of the six zombie types has **three PNG variants** under `assets/zombies/<type>/` (e.g. `drone_01.png` … `drone_03.png`). Paths are listed per type in `data/zombies.json` as `sprite_variants`. On spawn, `Zombie.gd` **randomly picks one** of the three and shows it as a camera-facing `Sprite3D` billboard (capsule body mesh is hidden; head/body hitboxes remain). The tickle cinematic stack reuses the same chosen textures when those zombies are actively tickling.
+Each of the six zombie types has **three PNG variants** under `assets/zombies/<type>/` (e.g. `drone_01.png` … `drone_03.png`). Paths are listed per type in `data/zombies.json` as `sprite_variants`. On spawn, `Zombie.gd` **randomly picks one** of the three and shows it as a camera-facing `Sprite3D` billboard (capsule body mesh is hidden; head/body hitboxes remain). While tickling, the top-left HUD shows Olivia Grace face sprites (`assets/survivor/faces/`) by active tickler count and stamina.
 
 ## Survivor outfit sprites (Olivia Grace)
 

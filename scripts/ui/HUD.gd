@@ -15,7 +15,7 @@ class_name HUD
 var player: PlayerController
 var _mobile_hints: bool = false
 
-const CINEMATIC_GAP := 150.0  # leave room for top-left tickle square
+const CINEMATIC_GAP := 220.0  # leave room for top-left Olivia face panel
 
 func _ready() -> void:
 	EventBus.hud_refresh.connect(_refresh)
@@ -46,7 +46,7 @@ func _apply_layout(mobile: bool) -> void:
 	if vbox == null:
 		return
 	if mobile:
-		# Top strip: health primary (full-width-ish), leave left gap for cinematic square
+		# Top strip: health primary (full-width-ish), leave left gap for Olivia face panel
 		vbox.set_anchors_preset(Control.PRESET_TOP_WIDE)
 		vbox.anchor_left = 0.0
 		vbox.anchor_right = 1.0

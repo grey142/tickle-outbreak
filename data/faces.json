@@ -1,0 +1,18 @@
+{
+  "panel_size": 200,
+  "description": "Olivia Grace tickle face reactions. Index N = clamp(active_ticklers, 1, 5). Use *_tired when stamina <= 0.",
+  "faces": {
+    "1": "res://assets/survivor/faces/face_1.png",
+    "2": "res://assets/survivor/faces/face_2.png",
+    "3": "res://assets/survivor/faces/face_3.png",
+    "4": "res://assets/survivor/faces/face_4.png",
+    "5": "res://assets/survivor/faces/face_5.png"
+  },
+  "faces_tired": {
+    "1": "res://assets/survivor/faces/face_1_tired.png",
+    "2": "res://assets/survivor/faces/face_2_tired.png",
+    "3": "res://assets/survivor/faces/face_3_tired.png",
+    "4": "res://assets/survivor/faces/face_4_tired.png",
+    "5": "res://assets/survivor/faces/face_5_tired.png"
+  }
+}

@@ -9,7 +9,7 @@ Tone: tongue-in-cheek action comedy. Placeholder capsules labeled by type. Soft 
 ## Pillars
 
 1. **FPS fundamentals** — hitscan guns, melee, reload, ammo capacity, dash.
-2. **Tickle pressure** — proximity DPS with stamina buffer, cinematic overlay when 1–5 ticklers are active.
+2. **Tickle pressure** — proximity DPS with stamina buffer; Olivia Grace face reaction panel when 1–5+ ticklers are active.
 3. **Meta progression** — permanent upgrades + weapons/armor shops between missions.
 4. **Data-driven balance** — JSON under `data/`.
 
@@ -66,9 +66,13 @@ Spawn weights are relative among **unlocked** types for the current mission.
 - **Character upgrades (L1–10):** +25 ammo cap, +5 speed, +10 health, +20 stamina. Costs scale exponentially (`base_cost * cost_scale^level`).
 - **Consumables:** Health potion (50% max HP, max 2/mission), Energy drink, Bullets, Alcohol (max 3/mission; 50/50 half or double tickle DPS; worsens aim; stacks/negates).
 
-## Tickle cinematic
+## Olivia face reaction (tickle HUD)
 
-When **1–5** zombies are **actively** dealing tickle damage, a top-center panel shows count + placeholder copy. Hidden at 0 or >5 (swarm beyond cinematic band).
+When zombies are **actively** dealing tickle DPS, a large top-left portrait shows Olivia Grace’s face:
+- `N = clamp(active_ticklers, 1, 5)` → `face_N.png` while stamina > 0
+- If stamina ≤ 0 (depleted) → `face_N_tired.png` (tears)
+- Hidden when active ticklers = 0
+Assets live under `assets/survivor/faces/`; paths listed in `data/faces.json`.
 
 ## Resolved ambiguities
 
