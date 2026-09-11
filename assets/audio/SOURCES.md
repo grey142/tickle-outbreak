@@ -28,3 +28,4 @@ Replaced Mixkit tickle laughs with user-recorded clips (2026-09-11):
 | `laugh_intense.ogg` | `custom_src/sonny_03_open_mouth_laugh.wav` — open-mouth intense (3+ ticklers / stamina empty) |
 
 Converted with ffmpeg loudnorm → Ogg Vorbis. Owned by the project author / user-provided.
+Extended to ~5s (soft crossfade loops + micro pitch variation) for less repetition; playback only restarts when laugh tier changes.

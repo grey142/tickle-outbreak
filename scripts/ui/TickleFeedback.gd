@@ -1,6 +1,6 @@
 extends CanvasLayer
 class_name TickleFeedback
-## Full-screen pink flash + giggle SFX on EventBus.tickle_pulse (once per second while tickled).
+## Full-screen pink flash on tickle_pulse; longer laugh clips play through and only restart/switch when intensity changes.
 
 const FLASH_PEAK_ALPHA := 0.52
 const FLASH_FADE_SEC := 0.50
@@ -21,6 +21,8 @@ var _player_idx: int = 0
 var _giggles: Array[AudioStream] = []
 var _intense: AudioStream
 var _tween: Tween
+var _laugh_tier: int = -1  ## 0 light, 1 intense, -1 none
+var _laugh_player: AudioStreamPlayer
 
 func _ready() -> void:
 	layer = 9
@@ -30,6 +32,8 @@ func _ready() -> void:
 	_load_audio()
 	if not EventBus.tickle_pulse.is_connected(_on_tickle_pulse):
 		EventBus.tickle_pulse.connect(_on_tickle_pulse)
+	if not EventBus.active_ticklers_changed.is_connected(_on_ticklers_changed):
+		EventBus.active_ticklers_changed.connect(_on_ticklers_changed)
 
 func _build_overlay() -> void:
 	_flash = ColorRect.new()
@@ -51,15 +55,13 @@ func _build_overlay() -> void:
 	_flash.z_index = 100
 	add_child(_flash)
 
-	# Dual players so overlapping pulses aren't cut off.
-	for i in range(2):
-		var p := AudioStreamPlayer.new()
-		p.name = "GigglePlayer_%d" % i
-		p.bus = "SFX"
-		p.volume_db = VOL_GIGGLE_DB
-		p.max_polyphony = 1
-		add_child(p)
-		_players.append(p)
+	# One primary laugh player (~5s clips). Flash still pulses; audio only restarts on tier change.
+	_laugh_player = AudioStreamPlayer.new()
+	_laugh_player.name = "LaughPlayer"
+	_laugh_player.bus = "SFX"
+	_laugh_player.volume_db = VOL_GIGGLE_DB
+	add_child(_laugh_player)
+	_players = [_laugh_player]
 
 func _load_audio() -> void:
 	_giggles.clear()
@@ -71,7 +73,13 @@ func _load_audio() -> void:
 
 func _on_tickle_pulse(active_count: int, stamina_depleted: bool) -> void:
 	_trigger_flash()
-	_play_giggle(active_count, stamina_depleted)
+	_ensure_laugh(active_count, stamina_depleted)
+
+func _on_ticklers_changed(count: int, stamina_depleted: bool) -> void:
+	if count <= 0:
+		_stop_laugh()
+	else:
+		_ensure_laugh(count, stamina_depleted)
 
 func _trigger_flash() -> void:
 	if _flash == null:
@@ -86,20 +94,31 @@ func _trigger_flash() -> void:
 	_tween.tween_interval(0.06)
 	_tween.tween_property(_flash, "color:a", 0.0, FLASH_FADE_SEC).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
-func _play_giggle(active_count: int, stamina_depleted: bool) -> void:
-	var stream: AudioStream = null
+func _ensure_laugh(active_count: int, stamina_depleted: bool) -> void:
+	if _laugh_player == null:
+		return
 	var use_intense := active_count >= 3 or stamina_depleted
+	var tier := 1 if use_intense else 0
+	# Still playing the same intensity — let the ~5s clip finish / continue.
+	if _laugh_player.playing and tier == _laugh_tier:
+		return
+	var stream: AudioStream = null
 	if use_intense and _intense:
 		stream = _intense
 	elif not _giggles.is_empty():
+		# Pick a light clip (reroll only when starting/switching).
 		stream = _giggles[randi() % _giggles.size()]
 	elif _intense:
 		stream = _intense
-	if stream == null or _players.is_empty():
+	if stream == null:
 		return
-	var player := _players[_player_idx]
-	_player_idx = (_player_idx + 1) % _players.size()
-	player.stream = stream
-	player.volume_db = VOL_INTENSE_DB if use_intense else VOL_GIGGLE_DB
-	player.pitch_scale = 1.0 + randf_range(-0.04, 0.06)
-	player.play()
+	_laugh_tier = tier
+	_laugh_player.stream = stream
+	_laugh_player.volume_db = VOL_INTENSE_DB if use_intense else VOL_GIGGLE_DB
+	_laugh_player.pitch_scale = 1.0 + randf_range(-0.03, 0.03)
+	_laugh_player.play()
+
+func _stop_laugh() -> void:
+	_laugh_tier = -1
+	if _laugh_player and _laugh_player.playing:
+		_laugh_player.stop()
