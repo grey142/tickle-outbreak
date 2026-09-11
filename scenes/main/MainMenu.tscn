@@ -47,6 +47,10 @@ horizontal_alignment = 1
 layout_mode = 2
 text = "New Run → Hub"
 
+[node name="TouchControls" type="CheckButton" parent="Center/VBox"]
+layout_mode = 2
+text = "Touch controls (desktop test)"
+
 [node name="Quit" type="Button" parent="Center/VBox"]
 layout_mode = 2
 text = "Quit"

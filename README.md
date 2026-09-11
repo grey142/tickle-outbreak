@@ -15,7 +15,7 @@ Tongue-in-cheek tone, placeholder art (colored capsules + simple FPS arms). Not 
 godot --path /path/to/tickle-outbreak
 ```
 
-## Controls
+## Controls (desktop)
 
 | Action | Binding |
 |--------|---------|
@@ -32,6 +32,39 @@ godot --path /path/to/tickle-outbreak
 | Alcohol | 4 |
 | Toggle mouse capture | Esc |
 
+## Mobile / landscape touch controls
+
+On Android/iOS, or when a touchscreen is available, missions show an on-screen **landscape** control overlay (`MobileControls`):
+
+```
+[ HUD top-left ]
+[Joystick L]                         [FIRE] [RELOAD]
+                                     [MELEE] [DASH] [JUMP]
+                                     [HP] [NRG] [AMMO] [ALC]
+[           look-drag zone (right ~half of screen)        ]
+```
+
+| Control | Behavior |
+|---------|----------|
+| Left virtual joystick | Movement vector (WASD equivalent) |
+| Drag on right half | Look / aim (does **not** fire) |
+| FIRE | Hold to shoot |
+| RELOAD / MELEE / DASH / JUMP | Tap |
+| HP / NRG / AMMO / ALC | Consumables 1–4 |
+
+Display defaults: `sensor_landscape` orientation, stretch `canvas_items` + `expand` aspect so phones fill the screen while desktop stays usable.
+
+### Force-enable for desktop / editor testing
+
+1. **Main Menu** → check **Touch controls (desktop test)** before starting a run, **or**
+2. In a running mission press **Esc** while touch UI is forced to turn it back off, **or**
+3. In the Godot editor: **Project → Project Settings → Parse Options / Input Devices** enable **Emulate Touch From Mouse** (Editor Settings → General → Pointing also has “Emulate Touch From Mouse”) so mouse clicks become `InputEventScreenTouch` / `ScreenDrag`. With the main-menu toggle on, mouse drag on the stick / look zone also works without that setting.
+4. Or set `GameState.force_mobile_controls = true` from the debugger.
+
+Touch look sensitivity default: `0.004` (`data/player_stats.json` → `touch_look_sensitivity`). Mouse sensitivity remains `0.0025`.
+
+Desktop keyboard/mouse keep working when the touch overlay is hidden.
+
 ## Loop
 
 1. **Main Menu** → New Run (starts with 100 coins for shop testing).
@@ -47,15 +80,15 @@ All tunable numbers live under `data/*.json` (guns, melee, armor, consumables, z
 
 ```
 data/           JSON balance tables
-scenes/         MainMenu, Hub, Mission (+ embedded HUD/cinematic/game over)
+scenes/         MainMenu, Hub, Mission (+ embedded HUD/cinematic/game over/mobile controls)
 scripts/
   autoload/     DataManager, GameState, EventBus
-  player/       FPS controller + combat
+  player/       FPS controller + combat (+ touch move/look/fire APIs)
   zombies/      Zombie AI / hitboxes / behaviors
   systems/      TickleSystem
   mission/      ArenaBuilder, MissionManager, MissionRoot
   hub/          Shop UI
-  ui/           HUD, cinematic overlay, menus
+  ui/           HUD, MobileControls, cinematic overlay, menus
 ```
 
 ## Design notes

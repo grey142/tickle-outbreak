@@ -1,6 +1,7 @@
 extends CharacterBody3D
 class_name PlayerController
 ## First-person controller: WASD, mouse look, jump, dash (stamina).
+## Optional touch APIs for mobile landscape controls (move/look/fire).
 
 @onready var camera: Camera3D = $Head/Camera3D
 @onready var head: Node3D = $Head
@@ -26,15 +27,49 @@ var dash_timer: float = 0.0
 var dash_dir: Vector3 = Vector3.ZERO
 var mouse_captured: bool = true
 
+## Touch / mobile control injection (used alongside keyboard/mouse)
+var mobile_controls_active: bool = false
+var touch_move: Vector2 = Vector2.ZERO
+var touch_firing: bool = false
+
 var _gun: Dictionary = {}
 var _melee: Dictionary = {}
 
 func _ready() -> void:
 	add_to_group("player")
-	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	if not mobile_controls_active:
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+		mouse_captured = true
+	else:
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+		mouse_captured = false
 	_apply_stats_from_state()
 	_equip_from_state()
 	EventBus.hud_refresh.emit()
+
+func set_mobile_controls_active(active: bool) -> void:
+	mobile_controls_active = active
+	if active:
+		mouse_captured = false
+		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+		touch_move = Vector2.ZERO
+		touch_firing = false
+	else:
+		# Restore desktop capture when leaving touch mode (unless paused UI)
+		mouse_captured = true
+		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+
+func set_touch_move(v: Vector2) -> void:
+	touch_move = v.limit_length(1.0)
+
+func apply_touch_look(relative_scaled: Vector2) -> void:
+	## relative_scaled already includes touch sensitivity (radians-ish scale).
+	head.rotate_y(-relative_scaled.x)
+	camera.rotate_x(-relative_scaled.y)
+	camera.rotation.x = clampf(camera.rotation.x, deg_to_rad(-85), deg_to_rad(85))
+
+func set_touch_firing(pressed: bool) -> void:
+	touch_firing = pressed
 
 func _apply_stats_from_state() -> void:
 	max_health = GameState.get_max_health()
@@ -74,11 +109,16 @@ func _update_weapon_mesh() -> void:
 	weapon_view.add_child(arm)
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseMotion and mouse_captured:
+	if event is InputEventMouseMotion and mouse_captured and not mobile_controls_active:
 		head.rotate_y(-event.relative.x * float(DataManager.player_stats.get("mouse_sensitivity", 0.0025)))
 		camera.rotate_x(-event.relative.y * float(DataManager.player_stats.get("mouse_sensitivity", 0.0025)))
 		camera.rotation.x = clampf(camera.rotation.x, deg_to_rad(-85), deg_to_rad(85))
 	if event.is_action_pressed("ui_cancel"):
+		if mobile_controls_active:
+			# Esc toggles force-mobile off when forced from desktop; otherwise no-op capture
+			if GameState.force_mobile_controls:
+				GameState.force_mobile_controls = false
+			return
 		mouse_captured = not mouse_captured
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED if mouse_captured else Input.MOUSE_MODE_VISIBLE)
 
@@ -103,6 +143,9 @@ func _physics_process(delta: float) -> void:
 		return
 
 	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	if touch_move.length_squared() > 0.0001:
+		# Blend: touch wins when active (virtual stick), else keyboard
+		input_dir = touch_move
 	var basis_y := head.global_transform.basis
 	var direction := (basis_y * Vector3(input_dir.x, 0, input_dir.y)).normalized()
 	var speed_scale := float(DataManager.player_stats.get("speed_godot_scale", 0.08))
@@ -149,9 +192,10 @@ func _tick_combat(delta: float) -> void:
 			_finish_reload()
 		return
 
-	if Input.is_action_pressed("fire") and fire_cooldown <= 0.0 and clip > 0:
+	var firing := Input.is_action_pressed("fire") or touch_firing
+	if firing and fire_cooldown <= 0.0 and clip > 0:
 		_fire()
-	elif Input.is_action_pressed("fire") and clip <= 0 and ammo_reserve > 0:
+	elif firing and clip <= 0 and ammo_reserve > 0:
 		_start_reload()
 
 	if Input.is_action_just_pressed("reload") and not is_reloading:

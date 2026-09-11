@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3 uid="uid://tickle_mission"]
+[gd_scene load_steps=6 format=3 uid="uid://tickle_mission"]
 
 [ext_resource type="Script" path="res://scripts/mission/MissionRoot.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/ui/HUD.gd" id="2"]
 [ext_resource type="Script" path="res://scripts/ui/TickleCinematic.gd" id="3"]
 [ext_resource type="Script" path="res://scripts/ui/GameOverUI.gd" id="4"]
+[ext_resource type="PackedScene" uid="uid://tickle_mobile_controls" path="res://scenes/ui/MobileControls.tscn" id="5"]
 
 [node name="Mission" type="Node3D"]
 script = ExtResource("1")
@@ -95,6 +96,8 @@ offset_bottom = -8.0
 grow_horizontal = 2
 grow_vertical = 0
 text = "Controls"
+
+[node name="MobileControls" parent="." instance=ExtResource("5")]
 
 [node name="TickleCinematic" type="CanvasLayer" parent="."]
 layer = 10

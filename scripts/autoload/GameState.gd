@@ -30,6 +30,9 @@ var alcohol_stacks: int = 0  # net stacks this mission (+ half or *2 each drink)
 var alcohol_tickle_multiplier: float = 1.0
 var alcohol_aim_penalty: float = 0.0
 
+## Desktop/editor testing: force landscape touch UI on
+var force_mobile_controls: bool = false
+
 func reset_run() -> void:
 	coins = 0
 	mission_number = 1

@@ -26,6 +26,18 @@ func _ready() -> void:
 	if hud and hud.has_method("bind_player"):
 		hud.bind_player(player)
 
+	var mobile := get_node_or_null("MobileControls")
+	if mobile and mobile.has_method("bind_player"):
+		mobile.bind_player(player)
+		if hud and hud.has_method("set_mobile_mode"):
+			var active := mobile.is_active() if mobile.has_method("is_active") else mobile.visible
+			hud.set_mobile_mode(active)
+			if mobile.has_signal("visibility_changed"):
+				mobile.visibility_changed.connect(func(shown: bool):
+					if is_instance_valid(hud) and hud.has_method("set_mobile_mode"):
+						hud.set_mobile_mode(shown)
+				)
+
 func _spawn_player() -> PlayerController:
 	var p := CharacterBody3D.new()
 	p.set_script(PlayerScript)

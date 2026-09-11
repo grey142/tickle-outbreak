@@ -11,6 +11,7 @@ class_name HUD
 @onready var hint_label: Label = $Root/HintLabel
 
 var player: PlayerController
+var _mobile_hints: bool = false
 
 func _ready() -> void:
 	EventBus.hud_refresh.connect(_refresh)
@@ -19,6 +20,12 @@ func _ready() -> void:
 
 func bind_player(p: PlayerController) -> void:
 	player = p
+	_refresh()
+
+func set_mobile_mode(active: bool) -> void:
+	_mobile_hints = active
+	if hint_label:
+		hint_label.visible = not active
 	_refresh()
 
 func _refresh() -> void:
@@ -40,7 +47,11 @@ func _refresh() -> void:
 	]
 	coins_label.text = "Coins: %d" % GameState.coins
 	weapon_label.text = "Weapon: %s | Melee: %s" % [player.get_weapon_name(), String(player._melee.get("name", "Knife"))]
-	hint_label.text = "LMB Fire | R Reload | F Melee | Shift Dash | Space Jump | 1-4 Consumables | Esc Mouse"
+	if _mobile_hints or (player != null and player.mobile_controls_active):
+		hint_label.visible = false
+	else:
+		hint_label.visible = true
+		hint_label.text = "LMB Fire | R Reload | F Melee | Shift Dash | Space Jump | 1-4 Consumables | Esc Mouse"
 
 func _on_progress(kills: int, quota: int) -> void:
 	mission_label.text = "Mission %d — Kills %d / %d" % [GameState.mission_number, kills, quota]
