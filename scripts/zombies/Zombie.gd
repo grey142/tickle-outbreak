@@ -57,10 +57,16 @@ func _build_visual() -> void:
 	for c in get_children():
 		c.queue_free()
 
-	var scale_arr: Array = def.get("scale", [1.0, 1.8, 1.0])
+	var scale_arr: Array = def.get("scale", [1.0, 1.65, 1.0])
 	var body_h := float(scale_arr[1])
 	var body_r := 0.35 * float(scale_arr[0])
 	var col := Color(String(def.get("color", "#7ec850")))
+	# Match MissionRoot player Head Y (1.6). Most types align art eyes here;
+	# spider stays low; volatile towers via a higher head_height.
+	var eye_default := float(DataManager.zombies.get("player_eye_height", 1.6))
+	var head_y := float(def.get("head_height", eye_default))
+	# Fraction from top of texture to eyes/upper-head (~bun/eyes in rembg art).
+	var head_from_top := float(def.get("head_from_top", 0.13))
 
 	# Billboard sprite (replaces colored capsule / head meshes)
 	if sprite_texture != null:
@@ -73,13 +79,16 @@ func _build_visual() -> void:
 		spr.transparent = true
 		spr.double_sided = true
 		spr.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-		# Fit sprite height roughly to capsule height (art has some vertical padding).
 		var tex_h := float(sprite_texture.get_height())
-		var target_h := body_h * 1.25
+		# Size so eyes land on head_y and feet stay near ground (full-bleed art).
+		var display_h := head_y / maxf(0.05, 1.0 - head_from_top)
+		if def.has("display_height"):
+			display_h = float(def.get("display_height"))
 		if tex_h > 0.0:
-			spr.pixel_size = target_h / tex_h
-		spr.position.y = target_h * 0.5
+			spr.pixel_size = display_h / tex_h
 		spr.centered = true
+		var eye_local := (0.5 - head_from_top) * display_h
+		spr.position.y = head_y - eye_local
 		add_child(spr)
 	else:
 		# Fallback capsule if textures fail to load
@@ -101,7 +110,7 @@ func _build_visual() -> void:
 		var hmat := StandardMaterial3D.new()
 		hmat.albedo_color = col.lightened(0.3)
 		head_mesh.material_override = hmat
-		head_mesh.position.y = body_h + 0.15
+		head_mesh.position.y = head_y
 		add_child(head_mesh)
 
 	# Collision (invisible; keeps physics)
@@ -122,11 +131,11 @@ func _build_visual() -> void:
 	var body_sphere := SphereShape3D.new()
 	body_sphere.radius = 0.45 * float(scale_arr[0])
 	body_area_shape.shape = body_sphere
-	body_area_shape.position.y = body_h * 0.45
+	body_area_shape.position.y = minf(body_h * 0.45, head_y - 0.35)
 	body_area.add_child(body_area_shape)
 	add_child(body_area)
 
-	# Head hitbox (no separate head mesh when sprite is shown)
+	# Head hitbox aligned to visual head / eye height
 	var head_area := Area3D.new()
 	head_area.name = "HeadHitbox"
 	head_area.collision_layer = 4
@@ -135,14 +144,14 @@ func _build_visual() -> void:
 	var head_sphere := SphereShape3D.new()
 	head_sphere.radius = 0.28
 	head_shape.shape = head_sphere
-	head_shape.position.y = body_h + 0.15
+	head_shape.position.y = head_y
 	head_area.add_child(head_shape)
 	add_child(head_area)
 
 	label = Label3D.new()
 	label.text = String(def.get("name", zombie_id))
 	label.font_size = 48
-	label.position.y = body_h + 0.7
+	label.position.y = head_y + 0.55
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	add_child(label)
 

@@ -2,6 +2,7 @@
   "speed_godot_scale": 0.08,
   "tickle_range": 2.2,
   "mid_range_tickle": 6.0,
+  "player_eye_height": 1.6,
   "types": [
     {
       "id": "drone",
@@ -16,11 +17,8 @@
       "behavior": "chase",
       "tickle_mode": "melee",
       "color": "#7ec850",
-      "scale": [
-        1.0,
-        1.8,
-        1.0
-      ],
+      "scale": [1.0, 1.65, 1.0],
+      "head_height": 1.6,
       "description": "Common shambler. Player Speed 100 outruns them easily.",
       "sprite_variants": [
         "res://assets/zombies/drone/drone_01.png",
@@ -42,11 +40,8 @@
       "tickle_mode": "melee",
       "flee_after_tickle_sec": 1.5,
       "color": "#e8a838",
-      "scale": [
-        0.9,
-        1.6,
-        0.9
-      ],
+      "scale": [0.9, 1.55, 0.9],
+      "head_height": 1.6,
       "description": "Faster than base player. Tickle-and-run hit-and-fade.",
       "sprite_variants": [
         "res://assets/zombies/bolter/bolter_01.png",
@@ -68,11 +63,8 @@
       "tickle_mode": "none",
       "spawn_rate_multiplier_while_alive": 2.0,
       "color": "#c050c8",
-      "scale": [
-        1.1,
-        2.0,
-        1.1
-      ],
+      "scale": [1.1, 1.7, 1.1],
+      "head_height": 1.6,
       "description": "No tickle DPS. Doubles all spawn rates while active.",
       "sprite_variants": [
         "res://assets/zombies/screamer/screamer_01.png",
@@ -94,11 +86,8 @@
       "tickle_mode": "melee",
       "slow_player_while_tickling": 13,
       "color": "#5050e0",
-      "scale": [
-        1.4,
-        1.0,
-        1.4
-      ],
+      "scale": [1.4, 1.0, 1.4],
+      "head_height": 0.95,
       "description": "Elite. High DPS; slows player -13 speed while tickling.",
       "sprite_variants": [
         "res://assets/zombies/spider/spider_01.png",
@@ -120,11 +109,8 @@
       "tickle_mode": "mid_range",
       "slow_player_while_tickling": 30,
       "color": "#40c0a0",
-      "scale": [
-        1.2,
-        2.2,
-        1.2
-      ],
+      "scale": [1.2, 1.7, 1.2],
+      "head_height": 1.6,
       "description": "Elite. Mid-range tickle; slows -30 while tickling.",
       "sprite_variants": [
         "res://assets/zombies/tendril/tendril_01.png",
@@ -146,11 +132,8 @@
       "tickle_mode": "mid_range",
       "slow_player_while_tickling": 45,
       "color": "#e04040",
-      "scale": [
-        1.5,
-        2.4,
-        1.5
-      ],
+      "scale": [1.5, 2.5, 1.5],
+      "head_height": 2.45,
       "description": "Elite glass cannon. Mid-range 45 DPS; slows -45.",
       "sprite_variants": [
         "res://assets/zombies/volatile/volatile_01.png",
