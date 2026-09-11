@@ -16,8 +16,17 @@
       "behavior": "chase",
       "tickle_mode": "melee",
       "color": "#7ec850",
-      "scale": [1.0, 1.8, 1.0],
-      "description": "Common shambler. Player Speed 100 outruns them easily."
+      "scale": [
+        1.0,
+        1.8,
+        1.0
+      ],
+      "description": "Common shambler. Player Speed 100 outruns them easily.",
+      "sprite_variants": [
+        "res://assets/zombies/drone/drone_01.png",
+        "res://assets/zombies/drone/drone_02.png",
+        "res://assets/zombies/drone/drone_03.png"
+      ]
     },
     {
       "id": "bolter",
@@ -33,8 +42,17 @@
       "tickle_mode": "melee",
       "flee_after_tickle_sec": 1.5,
       "color": "#e8a838",
-      "scale": [0.9, 1.6, 0.9],
-      "description": "Faster than base player. Tickle-and-run hit-and-fade."
+      "scale": [
+        0.9,
+        1.6,
+        0.9
+      ],
+      "description": "Faster than base player. Tickle-and-run hit-and-fade.",
+      "sprite_variants": [
+        "res://assets/zombies/bolter/bolter_01.png",
+        "res://assets/zombies/bolter/bolter_02.png",
+        "res://assets/zombies/bolter/bolter_03.png"
+      ]
     },
     {
       "id": "screamer",
@@ -50,8 +68,17 @@
       "tickle_mode": "none",
       "spawn_rate_multiplier_while_alive": 2.0,
       "color": "#c050c8",
-      "scale": [1.1, 2.0, 1.1],
-      "description": "No tickle DPS. Doubles all spawn rates while active."
+      "scale": [
+        1.1,
+        2.0,
+        1.1
+      ],
+      "description": "No tickle DPS. Doubles all spawn rates while active.",
+      "sprite_variants": [
+        "res://assets/zombies/screamer/screamer_01.png",
+        "res://assets/zombies/screamer/screamer_02.png",
+        "res://assets/zombies/screamer/screamer_03.png"
+      ]
     },
     {
       "id": "spider",
@@ -67,8 +94,17 @@
       "tickle_mode": "melee",
       "slow_player_while_tickling": 13,
       "color": "#5050e0",
-      "scale": [1.4, 1.0, 1.4],
-      "description": "Elite. High DPS; slows player -13 speed while tickling."
+      "scale": [
+        1.4,
+        1.0,
+        1.4
+      ],
+      "description": "Elite. High DPS; slows player -13 speed while tickling.",
+      "sprite_variants": [
+        "res://assets/zombies/spider/spider_01.png",
+        "res://assets/zombies/spider/spider_02.png",
+        "res://assets/zombies/spider/spider_03.png"
+      ]
     },
     {
       "id": "tendril",
@@ -84,8 +120,17 @@
       "tickle_mode": "mid_range",
       "slow_player_while_tickling": 30,
       "color": "#40c0a0",
-      "scale": [1.2, 2.2, 1.2],
-      "description": "Elite. Mid-range tickle; slows -30 while tickling."
+      "scale": [
+        1.2,
+        2.2,
+        1.2
+      ],
+      "description": "Elite. Mid-range tickle; slows -30 while tickling.",
+      "sprite_variants": [
+        "res://assets/zombies/tendril/tendril_01.png",
+        "res://assets/zombies/tendril/tendril_02.png",
+        "res://assets/zombies/tendril/tendril_03.png"
+      ]
     },
     {
       "id": "volatile",
@@ -101,8 +146,17 @@
       "tickle_mode": "mid_range",
       "slow_player_while_tickling": 45,
       "color": "#e04040",
-      "scale": [1.5, 2.4, 1.5],
-      "description": "Elite glass cannon. Mid-range 45 DPS; slows -45."
+      "scale": [
+        1.5,
+        2.4,
+        1.5
+      ],
+      "description": "Elite glass cannon. Mid-range 45 DPS; slows -45.",
+      "sprite_variants": [
+        "res://assets/zombies/volatile/volatile_01.png",
+        "res://assets/zombies/volatile/volatile_02.png",
+        "res://assets/zombies/volatile/volatile_03.png"
+      ]
     }
   ]
 }

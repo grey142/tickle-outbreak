@@ -1,6 +1,6 @@
 extends CharacterBody3D
 class_name Zombie
-## Placeholder capsule zombie with head/body hitboxes and behaviors.
+## Billboard sprite zombie with head/body hitboxes and behaviors.
 
 signal died(zombie_id: String, by_melee: bool, bonus: int)
 
@@ -19,6 +19,9 @@ var is_fleeing: bool = false
 var last_hit_melee: bool = false
 var actively_tickling: bool = false
 var label: Label3D
+## Path of the randomly chosen sprite variant (for cinematic / debug).
+var sprite_variant_path: String = ""
+var sprite_texture: Texture2D = null
 
 func setup(type_def: Dictionary) -> void:
 	def = type_def
@@ -32,7 +35,22 @@ func setup(type_def: Dictionary) -> void:
 	speed_stat = float(type_def.get("speed", 25))
 	slow_on_tickle = float(type_def.get("slow_player_while_tickling", 0))
 	name = "Zombie_%s" % zombie_id
+	_pick_sprite_variant()
 	_build_visual()
+
+func _pick_sprite_variant() -> void:
+	var variants: Array = def.get("sprite_variants", [])
+	if variants.is_empty():
+		sprite_variant_path = ""
+		sprite_texture = null
+		return
+	var pick: String = String(variants[randi() % variants.size()])
+	sprite_variant_path = pick
+	if ResourceLoader.exists(pick):
+		sprite_texture = load(pick) as Texture2D
+	else:
+		push_warning("Zombie sprite missing: %s" % pick)
+		sprite_texture = null
 
 func _build_visual() -> void:
 	# Clear prior
@@ -40,26 +58,59 @@ func _build_visual() -> void:
 		c.queue_free()
 
 	var scale_arr: Array = def.get("scale", [1.0, 1.8, 1.0])
+	var body_h := float(scale_arr[1])
+	var body_r := 0.35 * float(scale_arr[0])
 	var col := Color(String(def.get("color", "#7ec850")))
 
-	var body_mesh := MeshInstance3D.new()
-	var capsule := CapsuleMesh.new()
-	capsule.radius = 0.35 * float(scale_arr[0])
-	capsule.height = float(scale_arr[1])
-	body_mesh.mesh = capsule
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = col
-	body_mesh.material_override = mat
-	body_mesh.position.y = float(scale_arr[1]) * 0.5
-	add_child(body_mesh)
+	# Billboard sprite (replaces colored capsule / head meshes)
+	if sprite_texture != null:
+		var spr := Sprite3D.new()
+		spr.name = "Sprite"
+		spr.texture = sprite_texture
+		spr.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		spr.shaded = false
+		spr.alpha_cut = SpriteBase3D.ALPHA_CUT_DISABLED
+		spr.transparent = true
+		spr.double_sided = true
+		spr.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		# Fit sprite height roughly to capsule height (art has some vertical padding).
+		var tex_h := float(sprite_texture.get_height())
+		var target_h := body_h * 1.25
+		if tex_h > 0.0:
+			spr.pixel_size = target_h / tex_h
+		spr.position.y = target_h * 0.5
+		spr.centered = true
+		add_child(spr)
+	else:
+		# Fallback capsule if textures fail to load
+		var body_mesh := MeshInstance3D.new()
+		var capsule := CapsuleMesh.new()
+		capsule.radius = body_r
+		capsule.height = body_h
+		body_mesh.mesh = capsule
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = col
+		body_mesh.material_override = mat
+		body_mesh.position.y = body_h * 0.5
+		add_child(body_mesh)
+		var head_mesh := MeshInstance3D.new()
+		var hm := SphereMesh.new()
+		hm.radius = 0.25
+		hm.height = 0.5
+		head_mesh.mesh = hm
+		var hmat := StandardMaterial3D.new()
+		hmat.albedo_color = col.lightened(0.3)
+		head_mesh.material_override = hmat
+		head_mesh.position.y = body_h + 0.15
+		add_child(head_mesh)
 
-	# Collision
+	# Collision (invisible; keeps physics)
 	var body_col := CollisionShape3D.new()
 	var shape := CapsuleShape3D.new()
-	shape.radius = 0.35 * float(scale_arr[0])
-	shape.height = float(scale_arr[1])
+	shape.radius = body_r
+	shape.height = body_h
 	body_col.shape = shape
-	body_col.position.y = float(scale_arr[1]) * 0.5
+	body_col.position.y = body_h * 0.5
 	add_child(body_col)
 
 	# Body hitbox area
@@ -71,11 +122,11 @@ func _build_visual() -> void:
 	var body_sphere := SphereShape3D.new()
 	body_sphere.radius = 0.45 * float(scale_arr[0])
 	body_area_shape.shape = body_sphere
-	body_area_shape.position.y = float(scale_arr[1]) * 0.45
+	body_area_shape.position.y = body_h * 0.45
 	body_area.add_child(body_area_shape)
 	add_child(body_area)
 
-	# Head hitbox
+	# Head hitbox (no separate head mesh when sprite is shown)
 	var head_area := Area3D.new()
 	head_area.name = "HeadHitbox"
 	head_area.collision_layer = 4
@@ -84,25 +135,14 @@ func _build_visual() -> void:
 	var head_sphere := SphereShape3D.new()
 	head_sphere.radius = 0.28
 	head_shape.shape = head_sphere
-	head_shape.position.y = float(scale_arr[1]) + 0.15
+	head_shape.position.y = body_h + 0.15
 	head_area.add_child(head_shape)
-	# Head visual
-	var head_mesh := MeshInstance3D.new()
-	var hm := SphereMesh.new()
-	hm.radius = 0.25
-	hm.height = 0.5
-	head_mesh.mesh = hm
-	var hmat := StandardMaterial3D.new()
-	hmat.albedo_color = col.lightened(0.3)
-	head_mesh.material_override = hmat
-	head_mesh.position.y = float(scale_arr[1]) + 0.15
-	add_child(head_mesh)
 	add_child(head_area)
 
 	label = Label3D.new()
 	label.text = String(def.get("name", zombie_id))
 	label.font_size = 48
-	label.position.y = float(scale_arr[1]) + 0.7
+	label.position.y = body_h + 0.7
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	add_child(label)
 
