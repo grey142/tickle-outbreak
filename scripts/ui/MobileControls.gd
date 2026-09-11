@@ -20,11 +20,11 @@ var _left_held: bool = false
 var _right_held: bool = false
 var _touch_move: Vector2 = Vector2.ZERO
 
-const DPAD_BTN := Vector2(72, 72)
-const ACTION_BIG := Vector2(108, 78)
-const ACTION_MED := Vector2(96, 64)
-const ACTION_SM := Vector2(72, 48)
-const CONSUMABLE := Vector2(56, 42)
+const DPAD_BTN := Vector2(80, 80)
+const ACTION_BIG := Vector2(96, 96)
+const ACTION_MED := Vector2(88, 72)
+const ACTION_SM := Vector2(80, 60)
+const CONSUMABLE := Vector2(68, 52)
 
 func _ready() -> void:
 	layer = 5
@@ -193,7 +193,8 @@ func _make_dpad_button(symbol: String, _tag: String) -> Button:
 	normal.bg_color = Color(0.1, 0.12, 0.18, 0.55)
 	normal.border_color = Color(1, 1, 1, 0.45)
 	normal.set_border_width_all(2)
-	normal.set_corner_radius_all(14)
+	# Fully circular (half of square button size)
+	normal.set_corner_radius_all(int(DPAD_BTN.x * 0.5))
 	var pressed := normal.duplicate()
 	pressed.bg_color = Color(0.28, 0.48, 0.8, 0.8)
 	var hover := normal.duplicate()
@@ -202,7 +203,7 @@ func _make_dpad_button(symbol: String, _tag: String) -> Button:
 	b.add_theme_stylebox_override("pressed", pressed)
 	b.add_theme_stylebox_override("hover", hover)
 	b.add_theme_stylebox_override("focus", normal)
-	b.add_theme_font_size_override("font_size", 22)
+	b.add_theme_font_size_override("font_size", 28)
 	return b
 
 func _wire_dpad(btn: Button, dir: String) -> void:
@@ -259,18 +260,18 @@ func _build_actions(fill: Control) -> void:
 	actions.anchor_bottom = 1.0
 	actions.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	actions.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	actions.offset_left = -280.0
-	actions.offset_top = -320.0
+	actions.offset_left = -340.0
+	actions.offset_top = -380.0
 	actions.offset_right = -6.0
 	actions.offset_bottom = -6.0
-	actions.add_theme_constant_override("separation", 8)
+	actions.add_theme_constant_override("separation", 10)
 	actions.alignment = BoxContainer.ALIGNMENT_END
 	actions.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	fill.add_child(actions)
 
 	# Dash above the fire/melee cluster
 	var dash_row := HBoxContainer.new()
-	dash_row.add_theme_constant_override("separation", 8)
+	dash_row.add_theme_constant_override("separation", 10)
 	dash_row.alignment = BoxContainer.ALIGNMENT_END
 	actions.add_child(dash_row)
 	var btn_dash := _make_action_button("DASH", ACTION_MED, false)
@@ -279,7 +280,7 @@ func _build_actions(fill: Control) -> void:
 
 	# Fire + Melee prominent
 	var combat_row := HBoxContainer.new()
-	combat_row.add_theme_constant_override("separation", 10)
+	combat_row.add_theme_constant_override("separation", 12)
 	combat_row.alignment = BoxContainer.ALIGNMENT_END
 	actions.add_child(combat_row)
 	var btn_fire := _make_action_button("FIRE", ACTION_BIG, true)
@@ -292,7 +293,7 @@ func _build_actions(fill: Control) -> void:
 
 	# Reload (+ small jump) near cluster
 	var util_row := HBoxContainer.new()
-	util_row.add_theme_constant_override("separation", 8)
+	util_row.add_theme_constant_override("separation", 10)
 	util_row.alignment = BoxContainer.ALIGNMENT_END
 	actions.add_child(util_row)
 	var btn_reload := _make_action_button("RELOAD", ACTION_SM, false)
@@ -304,7 +305,7 @@ func _build_actions(fill: Control) -> void:
 
 	# Compact consumables strip
 	var cons_row := HBoxContainer.new()
-	cons_row.add_theme_constant_override("separation", 6)
+	cons_row.add_theme_constant_override("separation", 8)
 	cons_row.alignment = BoxContainer.ALIGNMENT_END
 	actions.add_child(cons_row)
 	for pair in [["HP", "use_health"], ["NRG", "use_energy"], ["AMMO", "use_ammo"], ["ALC", "use_alcohol"]]:
@@ -321,11 +322,13 @@ func _make_action_button(label: String, min_size: Vector2, emphasize: bool) -> B
 	normal.bg_color = Color(0.12, 0.14, 0.2, 0.58 if emphasize else 0.42)
 	normal.border_color = Color(1, 1, 1, 0.6 if emphasize else 0.35)
 	normal.set_border_width_all(2)
-	normal.set_corner_radius_all(12)
-	normal.content_margin_left = 8
-	normal.content_margin_right = 8
-	normal.content_margin_top = 6
-	normal.content_margin_bottom = 6
+	# Pill / near-circle: radius = half of shorter side
+	var radius := int(minf(min_size.x, min_size.y) * 0.5)
+	normal.set_corner_radius_all(radius)
+	normal.content_margin_left = 10
+	normal.content_margin_right = 10
+	normal.content_margin_top = 8
+	normal.content_margin_bottom = 8
 	var pressed := normal.duplicate()
 	pressed.bg_color = Color(0.25, 0.45, 0.75, 0.78)
 	var hover := normal.duplicate()
@@ -334,7 +337,7 @@ func _make_action_button(label: String, min_size: Vector2, emphasize: bool) -> B
 	b.add_theme_stylebox_override("pressed", pressed)
 	b.add_theme_stylebox_override("hover", hover)
 	b.add_theme_stylebox_override("focus", normal)
-	b.add_theme_font_size_override("font_size", 17 if emphasize else 13)
+	b.add_theme_font_size_override("font_size", 20 if emphasize else 15)
 	return b
 
 func _wire_action_button(btn: Button, action: String) -> void:

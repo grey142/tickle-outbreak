@@ -9,7 +9,7 @@ config/name="Tickle Outbreak"
 config/description="First-person tickle-zombie survival FPS vertical slice."
 config/version="0.1.0"
 run/main_scene="res://scenes/main/MainMenu.tscn"
-config/features=PackedStringArray("4.3", "Forward Plus")
+config/features=PackedStringArray("4.3", "GL Compatibility")
 config/icon="res://icon.svg"
 
 [autoload]
@@ -105,3 +105,4 @@ use_alcohol={
 
 renderer/rendering_method="gl_compatibility"
 textures/canvas_textures/default_texture_filter=0
+
