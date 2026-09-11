@@ -1,6 +1,6 @@
 extends CanvasLayer
 class_name MobileControls
-## Landscape phone touch controls: D-pad move, vertical right action strip, look joystick.
+## Landscape phone touch controls: large move + look virtual joysticks, right-edge actions.
 
 signal mobile_visibility_changed(shown: bool)
 
@@ -12,14 +12,25 @@ var _shown: bool = false
 
 var _root: Control
 var _hint: Label
+var _fill: Control
 
-var _fwd_held: bool = false
-var _back_held: bool = false
-var _left_held: bool = false
-var _right_held: bool = false
 var _touch_move: Vector2 = Vector2.ZERO
 
-## Look joystick state (separate touch index from D-pad / actions).
+## Shared stick geometry (computed from viewport — ~1/4 of bottom each).
+var _stick_radius: float = 140.0
+const STICK_DEADZONE := 0.13
+
+## Move joystick
+var _move_stick_active: bool = false
+var _move_stick_touch_idx: int = -1
+var _move_stick_vec: Vector2 = Vector2.ZERO
+var _move_base: Control
+var _move_knob: Control
+var _move_hit: Control
+var _move_base_center: Vector2 = Vector2.ZERO
+var _move_wrap: Control
+
+## Look joystick
 var _look_stick_active: bool = false
 var _look_stick_touch_idx: int = -1
 var _look_stick_vec: Vector2 = Vector2.ZERO
@@ -27,18 +38,18 @@ var _look_base: Control
 var _look_knob: Control
 var _look_hit: Control
 var _look_base_center: Vector2 = Vector2.ZERO
-const LOOK_STICK_RADIUS := 72.0
-const LOOK_DEADZONE := 0.15
-## Synthetic mouse index when emulating touch from mouse on desktop.
+var _look_wrap: Control
+
+## Synthetic mouse indices when emulating touch from mouse on desktop.
+const MOVE_MOUSE_IDX := 1000
 const LOOK_MOUSE_IDX := 1001
 ## Active real screen touches (web mouse-emulation must not fight these).
 var _screen_touches: int = 0
 
-const DPAD_BTN := Vector2(88, 88)
-const ACTION_BIG := Vector2(100, 56)
-const ACTION_MED := Vector2(96, 48)
-const ACTION_SM := Vector2(92, 44)
-const CONSUMABLE := Vector2(84, 36)
+const ACTION_BIG := Vector2(100, 52)
+const ACTION_MED := Vector2(96, 44)
+const ACTION_SM := Vector2(92, 40)
+const CONSUMABLE := Vector2(84, 34)
 
 func _ready() -> void:
 	layer = 5
@@ -48,6 +59,7 @@ func _ready() -> void:
 	_build_ui()
 	_refresh_visibility()
 	set_process(true)
+	get_viewport().size_changed.connect(_on_viewport_resized)
 
 func bind_player(p: PlayerController) -> void:
 	player = p
@@ -57,7 +69,7 @@ func _process(delta: float) -> void:
 	var want := _should_show()
 	if want != _shown:
 		_set_shown(want)
-	# Rate-based look while stick is deflected (works with D-pad multitouch).
+	# Rate-based look while stick is deflected (works with move stick + buttons multitouch).
 	if _shown and _look_stick_active and _look_stick_vec.length_squared() > 0.0001:
 		if player and is_instance_valid(player):
 			player.apply_touch_look(_look_stick_vec * look_sensitivity * delta)
@@ -72,10 +84,14 @@ func _input(event: InputEvent) -> void:
 			_screen_touches += 1
 			if _look_stick_touch_idx == LOOK_MOUSE_IDX:
 				_reset_look_stick()
+			if _move_stick_touch_idx == MOVE_MOUSE_IDX:
+				_reset_move_stick()
 		else:
 			_screen_touches = maxi(_screen_touches - 1, 0)
 			if st.index == _look_stick_touch_idx:
 				_reset_look_stick()
+			if st.index == _move_stick_touch_idx:
+				_reset_move_stick()
 
 func is_active() -> bool:
 	return _shown
@@ -105,17 +121,34 @@ func _apply_player_mobile_mode() -> void:
 	player.set_mobile_controls_active(_shown)
 	if not _shown:
 		_touch_move = Vector2.ZERO
-		_fwd_held = false
-		_back_held = false
-		_left_held = false
-		_right_held = false
 		player.set_touch_move(Vector2.ZERO)
 		player.set_touch_firing(false)
 		_reset_look_stick()
+		_reset_move_stick()
 		_screen_touches = 0
 		_release_all_actions()
 
+func _compute_stick_radius() -> float:
+	## Each stick ≈ quarter of the bottom: diameter ~min(28% width, 48% height).
+	var vp := get_viewport().get_visible_rect().size
+	if vp.x < 1.0 or vp.y < 1.0:
+		vp = Vector2(1280, 720)
+	var r := minf(vp.x * 0.14, vp.y * 0.24)
+	return clampf(r, 96.0, 200.0)
+
+func _on_viewport_resized() -> void:
+	var new_r := _compute_stick_radius()
+	if absf(new_r - _stick_radius) < 1.0:
+		return
+	_stick_radius = new_r
+	# Rebuild stick visuals in place by updating wrap sizes / styles.
+	_apply_stick_geometry(_move_wrap, _move_base, _move_knob, true)
+	_apply_stick_geometry(_look_wrap, _look_base, _look_knob, false)
+	_layout_action_strip()
+
 func _build_ui() -> void:
+	_stick_radius = _compute_stick_radius()
+
 	_root = Control.new()
 	_root.name = "Root"
 	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -128,186 +161,140 @@ func _build_ui() -> void:
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var sa := DisplayServer.get_display_safe_area()
 	var win := DisplayServer.window_get_size()
-	var pad_l := 24
-	var pad_r := 24
-	var pad_b := 20
-	var pad_t := 12
+	var pad_l := 16
+	var pad_r := 16
+	var pad_b := 12
+	var pad_t := 8
 	if win.x > 0 and win.y > 0 and sa.size.x > 0:
-		pad_l = maxi(24, sa.position.x)
-		pad_t = maxi(12, sa.position.y)
-		pad_r = maxi(24, win.x - (sa.position.x + sa.size.x))
-		pad_b = maxi(20, win.y - (sa.position.y + sa.size.y))
+		pad_l = maxi(16, sa.position.x)
+		pad_t = maxi(8, sa.position.y)
+		pad_r = maxi(16, win.x - (sa.position.x + sa.size.x))
+		pad_b = maxi(12, win.y - (sa.position.y + sa.size.y))
 	margin.add_theme_constant_override("margin_left", pad_l)
 	margin.add_theme_constant_override("margin_right", pad_r)
 	margin.add_theme_constant_override("margin_top", pad_t)
 	margin.add_theme_constant_override("margin_bottom", pad_b)
 	_root.add_child(margin)
 
-	var fill := Control.new()
-	fill.name = "Fill"
-	fill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	margin.add_child(fill)
+	_fill = Control.new()
+	_fill.name = "Fill"
+	_fill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	margin.add_child(_fill)
 
-	# Full-screen LookZone removed as primary look — inert leftover omitted.
-	# Look is exclusively via the bottom-right look joystick.
-
-	_build_dpad(fill)
-	_build_right_strip(fill)
+	_build_move_joystick(_fill)
+	_build_look_joystick(_fill)
+	_build_action_strip(_fill)
 
 	_hint = Label.new()
 	_hint.name = "TouchHint"
-	_hint.text = "D-pad move · look stick (BR) · right-edge actions"
+	_hint.text = "Move stick (BL) · Look stick (BR) · actions above look"
 	_hint.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	_hint.anchor_left = 1.0
 	_hint.anchor_right = 1.0
 	_hint.anchor_top = 0.0
 	_hint.anchor_bottom = 0.0
-	_hint.offset_left = -480.0
+	_hint.offset_left = -520.0
 	_hint.offset_top = 8.0
 	_hint.offset_right = -8.0
 	_hint.offset_bottom = 36.0
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_hint.modulate = Color(1, 1, 1, 0.55)
 	_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	fill.add_child(_hint)
+	_fill.add_child(_hint)
 
-func _build_dpad(fill: Control) -> void:
-	## Bottom-left 4 discrete movement buttons (not a joystick). Diagonals if two held.
-	var dpad := Control.new()
-	dpad.name = "DPad"
-	dpad.custom_minimum_size = Vector2(DPAD_BTN.x * 3.0 + 16.0, DPAD_BTN.y * 3.0 + 16.0)
-	dpad.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	dpad.anchor_left = 0.0
-	dpad.anchor_right = 0.0
-	dpad.anchor_top = 1.0
-	dpad.anchor_bottom = 1.0
-	var w := DPAD_BTN.x * 3.0 + 16.0
-	var h := DPAD_BTN.y * 3.0 + 16.0
-	dpad.offset_left = 4.0
-	dpad.offset_top = -h - 4.0
-	dpad.offset_right = w + 4.0
-	dpad.offset_bottom = -4.0
-	dpad.mouse_filter = Control.MOUSE_FILTER_STOP
-	fill.add_child(dpad)
+func _stick_wrap_size() -> float:
+	return _stick_radius * 2.0 + 12.0
 
-	var btn_f := _make_dpad_button("▲", "F")
-	btn_f.position = Vector2(DPAD_BTN.x + 8.0, 4.0)
-	_wire_dpad(btn_f, "fwd")
-	dpad.add_child(btn_f)
+func _build_move_joystick(fill: Control) -> void:
+	## Bottom-left ~quarter: large virtual move stick.
+	var sz := _stick_wrap_size()
+	_move_wrap = Control.new()
+	_move_wrap.name = "MoveJoystick"
+	_move_wrap.custom_minimum_size = Vector2(sz, sz)
+	_move_wrap.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	_move_wrap.anchor_left = 0.0
+	_move_wrap.anchor_right = 0.0
+	_move_wrap.anchor_top = 1.0
+	_move_wrap.anchor_bottom = 1.0
+	_move_wrap.offset_left = 4.0
+	_move_wrap.offset_top = -sz - 4.0
+	_move_wrap.offset_right = sz + 4.0
+	_move_wrap.offset_bottom = -4.0
+	_move_wrap.mouse_filter = Control.MOUSE_FILTER_STOP
+	fill.add_child(_move_wrap)
 
-	var btn_l := _make_dpad_button("◀", "L")
-	btn_l.position = Vector2(4.0, DPAD_BTN.y + 8.0)
-	_wire_dpad(btn_l, "left")
-	dpad.add_child(btn_l)
+	_move_base = _make_stick_base("MoveBase")
+	_move_wrap.add_child(_move_base)
+	_move_knob = _make_stick_knob("MoveKnob", Color(0.4, 0.85, 0.55, 0.78))
+	_move_wrap.add_child(_move_knob)
 
-	var btn_r := _make_dpad_button("▶", "R")
-	btn_r.position = Vector2(DPAD_BTN.x * 2.0 + 12.0, DPAD_BTN.y + 8.0)
-	_wire_dpad(btn_r, "right")
-	dpad.add_child(btn_r)
+	_move_hit = Control.new()
+	_move_hit.name = "Hit"
+	_move_hit.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_move_hit.mouse_filter = Control.MOUSE_FILTER_STOP
+	_move_hit.gui_input.connect(_on_move_stick_gui_input)
+	_move_wrap.add_child(_move_hit)
 
-	var btn_b := _make_dpad_button("▼", "B")
-	btn_b.position = Vector2(DPAD_BTN.x + 8.0, DPAD_BTN.y * 2.0 + 12.0)
-	_wire_dpad(btn_b, "back")
-	dpad.add_child(btn_b)
-
-func _make_dpad_button(symbol: String, _tag: String) -> Button:
-	var b := Button.new()
-	b.text = symbol
-	b.custom_minimum_size = DPAD_BTN
-	b.size = DPAD_BTN
-	b.focus_mode = Control.FOCUS_NONE
-	var normal := StyleBoxFlat.new()
-	normal.bg_color = Color(0.1, 0.12, 0.18, 0.55)
-	normal.border_color = Color(1, 1, 1, 0.45)
-	normal.set_border_width_all(2)
-	normal.set_corner_radius_all(int(DPAD_BTN.x * 0.5))
-	var pressed := normal.duplicate()
-	pressed.bg_color = Color(0.28, 0.48, 0.8, 0.8)
-	var hover := normal.duplicate()
-	hover.bg_color = Color(0.16, 0.2, 0.3, 0.65)
-	b.add_theme_stylebox_override("normal", normal)
-	b.add_theme_stylebox_override("pressed", pressed)
-	b.add_theme_stylebox_override("hover", hover)
-	b.add_theme_stylebox_override("focus", normal)
-	b.add_theme_font_size_override("font_size", 32)
-	return b
-
-func _wire_dpad(btn: Button, dir: String) -> void:
-	btn.button_down.connect(func():
-		match dir:
-			"fwd":
-				_fwd_held = true
-			"back":
-				_back_held = true
-			"left":
-				_left_held = true
-			"right":
-				_right_held = true
-		_recompute_move()
+	_move_wrap.resized.connect(func():
+		_move_base_center = _move_wrap.size * 0.5
+		_center_knob(_move_knob, _move_base_center)
 	)
-	btn.button_up.connect(func():
-		match dir:
-			"fwd":
-				_fwd_held = false
-			"back":
-				_back_held = false
-			"left":
-				_left_held = false
-			"right":
-				_right_held = false
-		_recompute_move()
+	call_deferred("_deferred_center_move")
+
+func _build_look_joystick(fill: Control) -> void:
+	## Bottom-right ~quarter: large virtual look stick (same size family as move).
+	var sz := _stick_wrap_size()
+	_look_wrap = Control.new()
+	_look_wrap.name = "LookJoystick"
+	_look_wrap.custom_minimum_size = Vector2(sz, sz)
+	_look_wrap.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	_look_wrap.anchor_left = 1.0
+	_look_wrap.anchor_right = 1.0
+	_look_wrap.anchor_top = 1.0
+	_look_wrap.anchor_bottom = 1.0
+	_look_wrap.offset_left = -sz - 4.0
+	_look_wrap.offset_top = -sz - 4.0
+	_look_wrap.offset_right = -4.0
+	_look_wrap.offset_bottom = -4.0
+	_look_wrap.mouse_filter = Control.MOUSE_FILTER_STOP
+	fill.add_child(_look_wrap)
+
+	_look_base = _make_stick_base("LookBase")
+	_look_wrap.add_child(_look_base)
+	_look_knob = _make_stick_knob("LookKnob", Color(0.35, 0.55, 0.9, 0.78))
+	_look_wrap.add_child(_look_knob)
+
+	_look_hit = Control.new()
+	_look_hit.name = "Hit"
+	_look_hit.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_look_hit.mouse_filter = Control.MOUSE_FILTER_STOP
+	_look_hit.gui_input.connect(_on_look_stick_gui_input)
+	_look_wrap.add_child(_look_hit)
+
+	_look_wrap.resized.connect(func():
+		_look_base_center = _look_wrap.size * 0.5
+		_center_knob(_look_knob, _look_base_center)
 	)
+	call_deferred("_deferred_center_look")
 
-func _recompute_move() -> void:
-	# Matches Input.get_vector("move_left","move_right","move_forward","move_back"):
-	# forward = -y, back = +y, left = -x, right = +x
-	var v := Vector2.ZERO
-	if _left_held:
-		v.x -= 1.0
-	if _right_held:
-		v.x += 1.0
-	if _fwd_held:
-		v.y -= 1.0
-	if _back_held:
-		v.y += 1.0
-	if v.length_squared() > 0.0001:
-		v = v.normalized()
-	_touch_move = v
-	_push_move()
+var _actions_root: Control
 
-func _build_right_strip(fill: Control) -> void:
-	## Right-edge vertical action wall + look joystick under it (bottom-right).
-	var stick_size := LOOK_STICK_RADIUS * 2.0 + 8.0
-	var strip_w := 120.0
+func _build_action_strip(fill: Control) -> void:
+	## Right-edge actions clustered upper-right / above the look stick (joysticks stay large).
+	_actions_root = Control.new()
+	_actions_root.name = "ActionStrip"
+	_actions_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fill.add_child(_actions_root)
 
-	var column := VBoxContainer.new()
-	column.name = "RightStrip"
-	column.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	column.anchor_left = 1.0
-	column.anchor_right = 1.0
-	column.anchor_top = 1.0
-	column.anchor_bottom = 1.0
-	column.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	column.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	column.offset_left = -strip_w - 4.0
-	column.offset_top = -520.0
-	column.offset_right = -4.0
-	column.offset_bottom = -4.0
-	column.add_theme_constant_override("separation", 4)
-	column.alignment = BoxContainer.ALIGNMENT_END
-	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	fill.add_child(column)
-
-	# Action buttons stacked along the right edge (thumb-reachable).
 	var actions := VBoxContainer.new()
 	actions.name = "Actions"
-	actions.add_theme_constant_override("separation", 4)
+	actions.add_theme_constant_override("separation", 3)
 	actions.alignment = BoxContainer.ALIGNMENT_END
 	actions.size_flags_horizontal = Control.SIZE_SHRINK_END
 	actions.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	column.add_child(actions)
+	_actions_root.add_child(actions)
 
 	var btn_fire := _make_action_button("FIRE", ACTION_BIG, true)
 	btn_fire.button_down.connect(func(): _set_firing(true))
@@ -335,79 +322,167 @@ func _build_right_strip(fill: Control) -> void:
 		_wire_action_button(btn, pair[1])
 		actions.add_child(btn)
 
-	# Look joystick under the wall strip (bottom-right).
-	_build_look_joystick(column, stick_size)
+	_layout_action_strip()
 
-func _build_look_joystick(parent: Control, stick_size: float) -> void:
-	var wrap := Control.new()
-	wrap.name = "LookJoystick"
-	wrap.custom_minimum_size = Vector2(stick_size, stick_size)
-	wrap.size_flags_horizontal = Control.SIZE_SHRINK_END
-	wrap.mouse_filter = Control.MOUSE_FILTER_STOP
-	parent.add_child(wrap)
+func _layout_action_strip() -> void:
+	if _actions_root == null or not is_instance_valid(_actions_root):
+		return
+	var sz := _stick_wrap_size()
+	var strip_w := 112.0
+	# Sit above look stick on the right edge; leave ~stick height free at bottom.
+	_actions_root.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	_actions_root.anchor_left = 1.0
+	_actions_root.anchor_right = 1.0
+	_actions_root.anchor_top = 1.0
+	_actions_root.anchor_bottom = 1.0
+	_actions_root.offset_left = -strip_w - 4.0
+	_actions_root.offset_right = -4.0
+	_actions_root.offset_bottom = -sz - 8.0
+	_actions_root.offset_top = -sz - 8.0 - 420.0
+	var actions := _actions_root.get_node_or_null("Actions") as Control
+	if actions:
+		actions.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		actions.anchor_top = 0.0
+		actions.anchor_bottom = 1.0
+		actions.offset_top = 0.0
+		actions.offset_bottom = 0.0
 
-	# Rounded base (ColorRect/Panel with proper mouse_filter IGNORE — hit layer catches input).
-	_look_base = Panel.new()
-	_look_base.name = "Base"
-	_look_base.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_look_base.mouse_filter = Control.MOUSE_FILTER_IGNORE
+func _make_stick_base(p_name: String) -> Panel:
+	var base := Panel.new()
+	base.name = p_name
+	base.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	base.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var base_style := StyleBoxFlat.new()
-	base_style.bg_color = Color(0.1, 0.12, 0.18, 0.55)
-	base_style.border_color = Color(1, 1, 1, 0.4)
+	base_style.bg_color = Color(0.1, 0.12, 0.18, 0.5)
+	base_style.border_color = Color(1, 1, 1, 0.38)
 	base_style.set_border_width_all(2)
-	base_style.set_corner_radius_all(int(LOOK_STICK_RADIUS))
-	_look_base.add_theme_stylebox_override("panel", base_style)
-	wrap.add_child(_look_base)
+	base_style.set_corner_radius_all(int(_stick_radius + 6.0))
+	base.add_theme_stylebox_override("panel", base_style)
+	return base
 
-	var knob_r := LOOK_STICK_RADIUS * 0.42
-	_look_knob = Panel.new()
-	_look_knob.name = "Knob"
-	_look_knob.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_look_knob.custom_minimum_size = Vector2(knob_r * 2.0, knob_r * 2.0)
-	_look_knob.size = Vector2(knob_r * 2.0, knob_r * 2.0)
+func _make_stick_knob(p_name: String, color: Color) -> Panel:
+	var knob_r := _stick_radius * 0.4
+	var knob := Panel.new()
+	knob.name = p_name
+	knob.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	knob.custom_minimum_size = Vector2(knob_r * 2.0, knob_r * 2.0)
+	knob.size = Vector2(knob_r * 2.0, knob_r * 2.0)
 	var knob_style := StyleBoxFlat.new()
-	knob_style.bg_color = Color(0.35, 0.55, 0.9, 0.75)
+	knob_style.bg_color = color
 	knob_style.border_color = Color(1, 1, 1, 0.65)
 	knob_style.set_border_width_all(2)
 	knob_style.set_corner_radius_all(int(knob_r))
-	_look_knob.add_theme_stylebox_override("panel", knob_style)
-	wrap.add_child(_look_knob)
+	knob.add_theme_stylebox_override("panel", knob_style)
+	return knob
 
-	# Hit target receives multitouch / mouse for look stick only.
-	_look_hit = Control.new()
-	_look_hit.name = "Hit"
-	_look_hit.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_look_hit.mouse_filter = Control.MOUSE_FILTER_STOP
-	_look_hit.gui_input.connect(_on_look_stick_gui_input)
-	wrap.add_child(_look_hit)
-
-	# Center knob after layout
-	wrap.resized.connect(func():
-		_look_base_center = wrap.size * 0.5
-		_center_look_knob()
-	)
-	# Initial center once in tree
-	call_deferred("_deferred_center_look_knob", wrap)
-
-func _deferred_center_look_knob(wrap: Control) -> void:
-	if not is_instance_valid(wrap):
+func _apply_stick_geometry(wrap: Control, base: Control, knob: Control, is_move: bool) -> void:
+	if wrap == null or not is_instance_valid(wrap):
 		return
-	_look_base_center = wrap.size * 0.5
+	var sz := _stick_wrap_size()
+	wrap.custom_minimum_size = Vector2(sz, sz)
+	if is_move:
+		wrap.offset_left = 4.0
+		wrap.offset_top = -sz - 4.0
+		wrap.offset_right = sz + 4.0
+		wrap.offset_bottom = -4.0
+	else:
+		wrap.offset_left = -sz - 4.0
+		wrap.offset_top = -sz - 4.0
+		wrap.offset_right = -4.0
+		wrap.offset_bottom = -4.0
+	if base is Panel:
+		var bs := (base as Panel).get_theme_stylebox("panel") as StyleBoxFlat
+		if bs:
+			bs.set_corner_radius_all(int(_stick_radius + 6.0))
+	if knob is Panel:
+		var knob_r := _stick_radius * 0.4
+		knob.custom_minimum_size = Vector2(knob_r * 2.0, knob_r * 2.0)
+		knob.size = Vector2(knob_r * 2.0, knob_r * 2.0)
+		var ks := (knob as Panel).get_theme_stylebox("panel") as StyleBoxFlat
+		if ks:
+			ks.set_corner_radius_all(int(knob_r))
+	var center := wrap.size * 0.5
+	if center.length_squared() < 1.0:
+		center = Vector2(_stick_radius + 6.0, _stick_radius + 6.0)
+	if is_move:
+		_move_base_center = center
+		_center_knob(_move_knob, _move_base_center)
+	else:
+		_look_base_center = center
+		_center_knob(_look_knob, _look_base_center)
+
+func _deferred_center_move() -> void:
+	if not is_instance_valid(_move_wrap):
+		return
+	_move_base_center = _move_wrap.size * 0.5
+	if _move_base_center.length_squared() < 1.0:
+		_move_base_center = Vector2(_stick_radius + 6.0, _stick_radius + 6.0)
+	_center_knob(_move_knob, _move_base_center)
+
+func _deferred_center_look() -> void:
+	if not is_instance_valid(_look_wrap):
+		return
+	_look_base_center = _look_wrap.size * 0.5
 	if _look_base_center.length_squared() < 1.0:
-		_look_base_center = Vector2(LOOK_STICK_RADIUS + 4.0, LOOK_STICK_RADIUS + 4.0)
-	_center_look_knob()
+		_look_base_center = Vector2(_stick_radius + 6.0, _stick_radius + 6.0)
+	_center_knob(_look_knob, _look_base_center)
 
-func _center_look_knob() -> void:
-	if _look_knob == null:
+func _center_knob(knob: Control, center: Vector2) -> void:
+	if knob == null:
 		return
-	var half := _look_knob.size * 0.5
-	_look_knob.position = _look_base_center - half
+	var half := knob.size * 0.5
+	knob.position = center - half
+
+func _reset_move_stick() -> void:
+	_move_stick_active = false
+	_move_stick_touch_idx = -1
+	_move_stick_vec = Vector2.ZERO
+	_touch_move = Vector2.ZERO
+	_center_knob(_move_knob, _move_base_center)
+	_push_move()
 
 func _reset_look_stick() -> void:
 	_look_stick_active = false
 	_look_stick_touch_idx = -1
 	_look_stick_vec = Vector2.ZERO
-	_center_look_knob()
+	_center_knob(_look_knob, _look_base_center)
+
+func _on_move_stick_gui_input(event: InputEvent) -> void:
+	if not _shown:
+		return
+	if event is InputEventScreenTouch:
+		var st := event as InputEventScreenTouch
+		if st.pressed:
+			if _move_stick_touch_idx == MOVE_MOUSE_IDX:
+				_reset_move_stick()
+			if _move_stick_touch_idx < 0:
+				_move_stick_touch_idx = st.index
+				_move_stick_active = true
+				_update_move_stick_from_local(st.position)
+				_move_hit.accept_event()
+		elif st.index == _move_stick_touch_idx:
+			_reset_move_stick()
+			_move_hit.accept_event()
+	elif event is InputEventScreenDrag:
+		var sd := event as InputEventScreenDrag
+		if sd.index == _move_stick_touch_idx:
+			_update_move_stick_from_local(sd.position)
+			_move_hit.accept_event()
+	elif _screen_touches == 0 and event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_LEFT:
+			if mb.pressed and _move_stick_touch_idx < 0:
+				_move_stick_touch_idx = MOVE_MOUSE_IDX
+				_move_stick_active = true
+				_update_move_stick_from_local(mb.position)
+				_move_hit.accept_event()
+			elif not mb.pressed and _move_stick_touch_idx == MOVE_MOUSE_IDX:
+				_reset_move_stick()
+				_move_hit.accept_event()
+	elif _screen_touches == 0 and event is InputEventMouseMotion and _move_stick_touch_idx == MOVE_MOUSE_IDX:
+		var mm := event as InputEventMouseMotion
+		_update_move_stick_from_local(mm.position)
+		_move_hit.accept_event()
 
 func _on_look_stick_gui_input(event: InputEvent) -> void:
 	if not _shown:
@@ -446,23 +521,30 @@ func _on_look_stick_gui_input(event: InputEvent) -> void:
 		_update_look_stick_from_local(mm.position)
 		_look_hit.accept_event()
 
+func _update_move_stick_from_local(local_pos: Vector2) -> void:
+	var n := _stick_normalized(local_pos, _move_base_center, _move_knob)
+	_move_stick_vec = n
+	# Input.get_vector convention: forward=-y, back=+y, left=-x, right=+x
+	_touch_move = n
+	_push_move()
+
 func _update_look_stick_from_local(local_pos: Vector2) -> void:
-	var offset := local_pos - _look_base_center
-	var max_r := LOOK_STICK_RADIUS
+	_look_stick_vec = _stick_normalized(local_pos, _look_base_center, _look_knob)
+
+func _stick_normalized(local_pos: Vector2, center: Vector2, knob: Control) -> Vector2:
+	var offset := local_pos - center
+	var max_r := _stick_radius
 	if offset.length() > max_r:
 		offset = offset.limit_length(max_r)
-	# Visual knob follows finger within radius
-	if _look_knob:
-		var half := _look_knob.size * 0.5
-		_look_knob.position = _look_base_center + offset - half
+	if knob:
+		var half := knob.size * 0.5
+		knob.position = center + offset - half
 	var n := offset / max_r
 	var mag := n.length()
-	if mag < LOOK_DEADZONE:
-		_look_stick_vec = Vector2.ZERO
-	else:
-		# Remap deadzone → 1.0 so leaving deadzone starts from 0
-		var remapped := (mag - LOOK_DEADZONE) / (1.0 - LOOK_DEADZONE)
-		_look_stick_vec = n.normalized() * clampf(remapped, 0.0, 1.0)
+	if mag < STICK_DEADZONE:
+		return Vector2.ZERO
+	var remapped := (mag - STICK_DEADZONE) / (1.0 - STICK_DEADZONE)
+	return n.normalized() * clampf(remapped, 0.0, 1.0)
 
 func _make_action_button(label: String, min_size: Vector2, emphasize: bool) -> Button:
 	var b := Button.new()
@@ -488,7 +570,7 @@ func _make_action_button(label: String, min_size: Vector2, emphasize: bool) -> B
 	b.add_theme_stylebox_override("pressed", pressed)
 	b.add_theme_stylebox_override("hover", hover)
 	b.add_theme_stylebox_override("focus", normal)
-	b.add_theme_font_size_override("font_size", 18 if emphasize else 13)
+	b.add_theme_font_size_override("font_size", 17 if emphasize else 12)
 	return b
 
 func _wire_action_button(btn: Button, action: String) -> void:

@@ -51,24 +51,26 @@ On Android/iOS, or when a touchscreen is available, missions show an on-screen *
 [Olivia face panel]  [==== Health bar (top) ====]  [ammo/mission…]
                            [==== Stamina (secondary) ==]
 
-[ D-pad: ▲ ▼ ◀ ▶ ]                         | FIRE  |
-  (hold; diagonals OK)                     | MELEE |
-                                           | DASH  |  ← right-edge
-                                           | RELOAD|     vertical strip
+                                           | FIRE  |
+                                           | MELEE |  ← right-edge actions
+                                           | DASH  |     (above look stick)
+                                           | RELOAD|
                                            | JUMP  |
                                            | HP…ALC|
-                                           [ LOOK  ]
-                                           [ stick ]  ← bottom-right
+[  MOVE stick  ]                           [  LOOK stick  ]
+  (~BL quarter)                              (~BR quarter)
 ```
 
 | Control | Behavior |
 |---------|----------|
-| Bottom-left **D-pad** (Forward / Back / Left / Right) | Hold a button to move; hold two for diagonals (not a virtual joystick) |
-| Bottom-right **look stick** | Drag to turn camera (rate-based while deflected); release centers. Multitouch with D-pad |
-| **FIRE** / **MELEE** / **DASH** / **RELOAD** / **JUMP** | Vertical strip along the right edge (thumb-reachable) |
+| Bottom-left **move stick** | Large virtual joystick (~¼ of bottom). Drag for analog move (`set_touch_move`, deadzone ~0.13); release centers |
+| Bottom-right **look stick** | Same size family. Rate-based look each frame (`apply_touch_look` × sensitivity × delta); release centers |
+| **FIRE** / **MELEE** / **DASH** / **RELOAD** / **JUMP** | Right-edge strip **above** the look stick (joysticks stay large) |
 | HP / NRG / AMMO / ALC | Consumables stacked under utilities on the right strip |
 | Top health (+ stamina) | Primary bars; leave room for face panel |
 | Top-left **Olivia face** panel | Calm face at 0 ticklers; 1–5 intensity; tired/tears when stamina depleted |
+
+Multitouch: left stick + right stick + a button work together without camera shake. Both sticks use translucent rounded base + knob.
 
 Display defaults: `sensor_landscape` orientation, stretch `canvas_items` + `expand` aspect so phones fill the screen while desktop stays usable.
 
@@ -76,7 +78,7 @@ Display defaults: `sensor_landscape` orientation, stretch `canvas_items` + `expa
 
 1. **Main Menu** → check **Touch controls (desktop test)** before starting a run, **or**
 2. In a running mission press **Esc** while touch UI is forced to turn it back off, **or**
-3. In the Godot editor: **Project → Project Settings → Parse Options / Input Devices** enable **Emulate Touch From Mouse** (Editor Settings → General → Pointing also has “Emulate Touch From Mouse”) so mouse clicks become `InputEventScreenTouch` / `ScreenDrag`. With the main-menu toggle on, mouse drag on the D-pad / look stick also works without that setting.
+3. In the Godot editor: **Project → Project Settings → Parse Options / Input Devices** enable **Emulate Touch From Mouse** (Editor Settings → General → Pointing also has “Emulate Touch From Mouse”) so mouse clicks become `InputEventScreenTouch` / `ScreenDrag`. With the main-menu toggle on, mouse drag on either stick also works without that setting.
 4. Or set `GameState.force_mobile_controls = true` from the debugger.
 
 Touch look sensitivity default: `2.8` rad/s at full stick deflection (`data/player_stats.json` → `touch_look_sensitivity`). Mouse sensitivity default: `0.002`.
