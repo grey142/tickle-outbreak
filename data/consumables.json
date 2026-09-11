@@ -1,0 +1,41 @@
+{
+  "consumables": [
+    {
+      "id": "health_potion",
+      "name": "Health Potion",
+      "effect": "heal_percent_max",
+      "value": 0.5,
+      "shop_cost": 75,
+      "max_per_mission": 2,
+      "description": "Restores 50% of max health. Max 2 per mission."
+    },
+    {
+      "id": "energy_drink",
+      "name": "Energy Drink",
+      "effect": "refill_stamina",
+      "value": 1.0,
+      "shop_cost": 50,
+      "max_per_mission": 99,
+      "description": "Fully refills stamina."
+    },
+    {
+      "id": "bullets",
+      "name": "Bullets",
+      "effect": "refill_ammo",
+      "value": 1.0,
+      "shop_cost": 40,
+      "max_per_mission": 99,
+      "description": "Refills ammo to capacity for the equipped gun."
+    },
+    {
+      "id": "alcohol",
+      "name": "Alcohol",
+      "effect": "alcohol_rng",
+      "value": 1.0,
+      "shop_cost": 30,
+      "max_per_mission": 3,
+      "description": "50/50 halves or doubles tickle DPS taken; worsens aim. Stacks/negates across drinks. Max 3/mission."
+    }
+  ],
+  "alcohol_aim_penalty_degrees_per_stack": 3.0
+}

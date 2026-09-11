@@ -1,0 +1,92 @@
+{
+  "armor": [
+    {
+      "id": "bikini",
+      "name": "Bikini Outfit",
+      "health_bonus": 1,
+      "ammo_bonus": 0,
+      "shop_cost": 0,
+      "description": "Starter kit. Soft stomach lore: maximum mobility, minimal coverage."
+    },
+    {
+      "id": "athletic_tank",
+      "name": "Athletic Tank",
+      "health_bonus": 6,
+      "ammo_bonus": 2,
+      "shop_cost": 100,
+      "description": "Light workout gear. Soft feet stay quick on pavement."
+    },
+    {
+      "id": "runner_shorts",
+      "name": "Runner Set",
+      "health_bonus": 6,
+      "ammo_bonus": 3,
+      "shop_cost": 180,
+      "description": "Breathable fabric. Soft stomach stays free for dash recovery."
+    },
+    {
+      "id": "scout_vest",
+      "name": "Scout Vest",
+      "health_bonus": 6,
+      "ammo_bonus": 4,
+      "shop_cost": 260,
+      "description": "Light plates over soft midriff. Extra clip loops."
+    },
+    {
+      "id": "medic_scrubs",
+      "name": "Field Medic Scrubs",
+      "health_bonus": 6,
+      "ammo_bonus": 5,
+      "shop_cost": 340,
+      "description": "Hospital chic. Soft soles for silent hallway work."
+    },
+    {
+      "id": "courier_jacket",
+      "name": "Courier Jacket",
+      "health_bonus": 6,
+      "ammo_bonus": 5,
+      "shop_cost": 420,
+      "description": "City runner look. Soft stomach under a zippered shell."
+    },
+    {
+      "id": "riot_light",
+      "name": "Light Riot Kit",
+      "health_bonus": 6,
+      "ammo_bonus": 6,
+      "shop_cost": 500,
+      "description": "Partial pads. Soft feet still feel every sidewalk crack."
+    },
+    {
+      "id": "hazmat_lite",
+      "name": "Hazmat Lite",
+      "health_bonus": 6,
+      "ammo_bonus": 6,
+      "shop_cost": 580,
+      "description": "Tickle-resistant coating (mostly marketing). Soft midriff vents."
+    },
+    {
+      "id": "night_ops",
+      "name": "Night Ops Suit",
+      "health_bonus": 6,
+      "ammo_bonus": 7,
+      "shop_cost": 660,
+      "description": "Matte black. Soft soles for rooftop hops."
+    },
+    {
+      "id": "urban_camo",
+      "name": "Urban Camo",
+      "health_bonus": 6,
+      "ammo_bonus": 8,
+      "shop_cost": 740,
+      "description": "City-pattern weave. Soft stomach plate is still just fabric."
+    },
+    {
+      "id": "hero_jacket",
+      "name": "Hero Jacket",
+      "health_bonus": 6,
+      "ammo_bonus": 10,
+      "shop_cost": 900,
+      "description": "Endgame drip. Soft feet lore: legendary traction, ticklish heels."
+    }
+  ]
+}

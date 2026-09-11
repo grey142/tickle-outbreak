@@ -1,0 +1,17 @@
+{
+  "base_health": 100,
+  "base_stamina": 100,
+  "base_speed": 100,
+  "base_ammo_capacity": 50,
+  "speed_godot_scale": 0.08,
+  "jump_velocity": 4.5,
+  "dash_stamina_cost": 25,
+  "dash_speed_multiplier": 2.5,
+  "dash_duration": 0.25,
+  "stamina_regen_per_sec": 8,
+  "mouse_sensitivity": 0.0025,
+  "gravity": 9.8,
+  "starter_gun_id": "senas_pistol_1",
+  "starter_melee_id": "kitchen_knife",
+  "starter_armor_id": "bikini"
+}

@@ -1,0 +1,41 @@
+{
+  "max_level": 10,
+  "upgrades": [
+    {
+      "id": "ammo_capacity",
+      "name": "+25 Ammo Capacity",
+      "stat": "ammo_capacity",
+      "per_level": 25,
+      "base_cost": 100,
+      "cost_scale": 1.45,
+      "description": "Permanent +25 ammo capacity per level (L1–10)."
+    },
+    {
+      "id": "speed",
+      "name": "+5 Speed",
+      "stat": "speed",
+      "per_level": 5,
+      "base_cost": 120,
+      "cost_scale": 1.5,
+      "description": "Permanent +5 move speed per level."
+    },
+    {
+      "id": "health",
+      "name": "+10 Health",
+      "stat": "health",
+      "per_level": 10,
+      "base_cost": 110,
+      "cost_scale": 1.48,
+      "description": "Permanent +10 max health per level."
+    },
+    {
+      "id": "stamina",
+      "name": "+20 Stamina",
+      "stat": "stamina",
+      "per_level": 20,
+      "base_cost": 100,
+      "cost_scale": 1.45,
+      "description": "Permanent +20 max stamina per level."
+    }
+  ]
+}

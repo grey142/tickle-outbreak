@@ -1,0 +1,11 @@
+{
+  "base_kill_quota": 15,
+  "kills_per_mission_scale": 5,
+  "base_spawn_interval": 2.5,
+  "spawn_interval_scale": 0.92,
+  "min_spawn_interval": 0.7,
+  "max_alive_base": 8,
+  "max_alive_per_mission": 1,
+  "max_alive_cap": 20,
+  "difficulty_notes": "Kill quota = base + (mission-1)*scale. Post-mission 4 unlocks Spider/Tendril/Volatile. Screamer doubles spawn rate while alive."
+}

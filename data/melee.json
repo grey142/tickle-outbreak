@@ -1,0 +1,49 @@
+{
+  "melee": [
+    {
+      "id": "kitchen_knife",
+      "name": "Kitchen Knife",
+      "damage": 3,
+      "recharge": 0.5,
+      "range": 2.0,
+      "shop_cost": 0,
+      "description": "Starter cutlery. Surprisingly effective on soft undead."
+    },
+    {
+      "id": "cleaver",
+      "name": "Butcher Cleaver",
+      "damage": 6,
+      "recharge": 0.55,
+      "range": 2.1,
+      "shop_cost": 200,
+      "description": "Heavier chop. Doubles kitchen knife damage."
+    },
+    {
+      "id": "pipe_wrench",
+      "name": "Pipe Wrench",
+      "damage": 10,
+      "recharge": 0.7,
+      "range": 2.3,
+      "shop_cost": 450,
+      "description": "Blunt force with reach. Slower swing, bigger thump."
+    },
+    {
+      "id": "machete",
+      "name": "Street Machete",
+      "damage": 15,
+      "recharge": 0.6,
+      "range": 2.4,
+      "shop_cost": 750,
+      "description": "Proper cutting tool. Balanced power and speed."
+    },
+    {
+      "id": "thunder_bat",
+      "name": "Thunder Bat",
+      "damage": 25,
+      "recharge": 0.8,
+      "range": 2.6,
+      "shop_cost": 1200,
+      "description": "Endgame melee. One solid hit ends most ticklers."
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+# Godot 4+ standard ignore
+.godot/
+*.translation
+.import/
+export.cfg
+export_presets.cfg
+*.tmp
+
+# Imported assets cache
+.mono/
+data_*/
+mono_crash.*.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.vscode/
+.idea/
+
+# Builds
+build/
+builds/
+*.apk
+*.aab
+*.ipa
+*.exe
+*.x86_64
+*.app
