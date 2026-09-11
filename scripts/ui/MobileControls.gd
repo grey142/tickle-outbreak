@@ -1,6 +1,6 @@
 extends CanvasLayer
 class_name MobileControls
-## Landscape phone touch controls: large move + look virtual joysticks, right-edge actions.
+## Landscape phone touch controls: large move + look virtual joysticks, action buttons orbiting the sticks.
 
 signal mobile_visibility_changed(shown: bool)
 
@@ -46,10 +46,12 @@ const LOOK_MOUSE_IDX := 1001
 ## Active real screen touches (web mouse-emulation must not fight these).
 var _screen_touches: int = 0
 
-const ACTION_BIG := Vector2(100, 52)
-const ACTION_MED := Vector2(96, 44)
-const ACTION_SM := Vector2(92, 40)
-const CONSUMABLE := Vector2(84, 34)
+## FIRE / RELOAD are noticeably larger than other action buttons.
+const ACTION_FIRE := Vector2(132, 78)
+const ACTION_RELOAD := Vector2(124, 70)
+const ACTION_MED := Vector2(92, 46)
+const ACTION_SM := Vector2(84, 40)
+const CONSUMABLE := Vector2(70, 32)
 
 func _ready() -> void:
 	layer = 5
@@ -144,7 +146,7 @@ func _on_viewport_resized() -> void:
 	# Rebuild stick visuals in place by updating wrap sizes / styles.
 	_apply_stick_geometry(_move_wrap, _move_base, _move_knob, true)
 	_apply_stick_geometry(_look_wrap, _look_base, _look_knob, false)
-	_layout_action_strip()
+	_layout_action_buttons()
 
 func _build_ui() -> void:
 	_stick_radius = _compute_stick_radius()
@@ -189,7 +191,7 @@ func _build_ui() -> void:
 
 	_hint = Label.new()
 	_hint.name = "TouchHint"
-	_hint.text = "Move stick (BL) · Look stick (BR) · actions above look"
+	_hint.text = "Move (BL) · Look (BR) · actions orbit sticks · big FIRE/RELOAD"
 	_hint.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	_hint.anchor_left = 1.0
 	_hint.anchor_right = 1.0
@@ -280,72 +282,124 @@ func _build_look_joystick(fill: Control) -> void:
 	call_deferred("_deferred_center_look")
 
 var _actions_root: Control
+var _btn_fire: Button
+var _btn_melee: Button
+var _btn_dash: Button
+var _btn_reload: Button
+var _btn_jump: Button
+var _btn_hp: Button
+var _btn_nrg: Button
+var _btn_ammo: Button
+var _btn_alc: Button
 
 func _build_action_strip(fill: Control) -> void:
-	## Right-edge actions clustered upper-right / above the look stick (joysticks stay large).
+	## Action buttons orbit outside the stick pads (not edge strips) so thumbs keep clear sticks.
 	_actions_root = Control.new()
-	_actions_root.name = "ActionStrip"
+	_actions_root.name = "ActionOrbit"
+	_actions_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_actions_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	fill.add_child(_actions_root)
 
-	var actions := VBoxContainer.new()
-	actions.name = "Actions"
-	actions.add_theme_constant_override("separation", 3)
-	actions.alignment = BoxContainer.ALIGNMENT_END
-	actions.size_flags_horizontal = Control.SIZE_SHRINK_END
-	actions.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_actions_root.add_child(actions)
+	_btn_fire = _make_action_button("FIRE", ACTION_FIRE, true)
+	_btn_fire.button_down.connect(func(): _set_firing(true))
+	_btn_fire.button_up.connect(func(): _set_firing(false))
+	_actions_root.add_child(_btn_fire)
 
-	var btn_fire := _make_action_button("FIRE", ACTION_BIG, true)
-	btn_fire.button_down.connect(func(): _set_firing(true))
-	btn_fire.button_up.connect(func(): _set_firing(false))
-	actions.add_child(btn_fire)
+	_btn_melee = _make_action_button("MELEE", ACTION_MED, true)
+	_btn_melee.button_down.connect(_on_melee_pressed)
+	_actions_root.add_child(_btn_melee)
 
-	var btn_melee := _make_action_button("MELEE", ACTION_BIG, true)
-	btn_melee.button_down.connect(_on_melee_pressed)
-	actions.add_child(btn_melee)
+	_btn_reload = _make_action_button("RELOAD", ACTION_RELOAD, true)
+	_wire_action_button(_btn_reload, "reload")
+	_actions_root.add_child(_btn_reload)
 
-	var btn_dash := _make_action_button("DASH", ACTION_MED, false)
-	_wire_action_button(btn_dash, "dash")
-	actions.add_child(btn_dash)
+	_btn_dash = _make_action_button("DASH", ACTION_MED, false)
+	_wire_action_button(_btn_dash, "dash")
+	_actions_root.add_child(_btn_dash)
 
-	var btn_reload := _make_action_button("RELOAD", ACTION_SM, false)
-	_wire_action_button(btn_reload, "reload")
-	actions.add_child(btn_reload)
+	_btn_jump = _make_action_button("JUMP", ACTION_SM, false)
+	_wire_action_button(_btn_jump, "jump")
+	_actions_root.add_child(_btn_jump)
 
-	var btn_jump := _make_action_button("JUMP", ACTION_SM, false)
-	_wire_action_button(btn_jump, "jump")
-	actions.add_child(btn_jump)
+	_btn_hp = _make_action_button("HP", CONSUMABLE, false)
+	_wire_action_button(_btn_hp, "use_health")
+	_actions_root.add_child(_btn_hp)
 
-	for pair in [["HP", "use_health"], ["NRG", "use_energy"], ["AMMO", "use_ammo"], ["ALC", "use_alcohol"]]:
-		var btn := _make_action_button(pair[0], CONSUMABLE, false)
-		_wire_action_button(btn, pair[1])
-		actions.add_child(btn)
+	_btn_nrg = _make_action_button("NRG", CONSUMABLE, false)
+	_wire_action_button(_btn_nrg, "use_energy")
+	_actions_root.add_child(_btn_nrg)
 
-	_layout_action_strip()
+	_btn_ammo = _make_action_button("AMMO", CONSUMABLE, false)
+	_wire_action_button(_btn_ammo, "use_ammo")
+	_actions_root.add_child(_btn_ammo)
 
-func _layout_action_strip() -> void:
+	_btn_alc = _make_action_button("ALC", CONSUMABLE, false)
+	_wire_action_button(_btn_alc, "use_alcohol")
+	_actions_root.add_child(_btn_alc)
+
+	_layout_action_buttons()
+
+func _place_btn_br(btn: Button, right: float, bottom: float) -> void:
+	## Anchor bottom-right; right/bottom are distances from the BR corner (positive inward).
+	if btn == null or not is_instance_valid(btn):
+		return
+	var s := btn.custom_minimum_size
+	btn.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	btn.anchor_left = 1.0
+	btn.anchor_right = 1.0
+	btn.anchor_top = 1.0
+	btn.anchor_bottom = 1.0
+	btn.offset_left = -(right + s.x)
+	btn.offset_right = -right
+	btn.offset_top = -(bottom + s.y)
+	btn.offset_bottom = -bottom
+	btn.size_flags_horizontal = Control.SIZE_SHRINK_END
+
+func _place_btn_bl(btn: Button, left: float, bottom: float) -> void:
+	## Anchor bottom-left; left/bottom are distances from the BL corner (positive inward).
+	if btn == null or not is_instance_valid(btn):
+		return
+	var s := btn.custom_minimum_size
+	btn.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	btn.anchor_left = 0.0
+	btn.anchor_right = 0.0
+	btn.anchor_top = 1.0
+	btn.anchor_bottom = 1.0
+	btn.offset_left = left
+	btn.offset_right = left + s.x
+	btn.offset_top = -(bottom + s.y)
+	btn.offset_bottom = -bottom
+	btn.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+
+func _layout_action_buttons() -> void:
 	if _actions_root == null or not is_instance_valid(_actions_root):
 		return
 	var sz := _stick_wrap_size()
-	var strip_w := 112.0
-	# Sit above look stick on the right edge; leave ~stick height free at bottom.
-	_actions_root.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	_actions_root.anchor_left = 1.0
-	_actions_root.anchor_right = 1.0
-	_actions_root.anchor_top = 1.0
-	_actions_root.anchor_bottom = 1.0
-	_actions_root.offset_left = -strip_w - 4.0
-	_actions_root.offset_right = -4.0
-	_actions_root.offset_bottom = -sz - 8.0
-	_actions_root.offset_top = -sz - 8.0 - 420.0
-	var actions := _actions_root.get_node_or_null("Actions") as Control
-	if actions:
-		actions.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		actions.anchor_top = 0.0
-		actions.anchor_bottom = 1.0
-		actions.offset_top = 0.0
-		actions.offset_bottom = 0.0
+	## Clear the stick disc + a padding ring so thumbs stay on the pads.
+	var orbit := sz + 14.0
+	var gap := 8.0
+
+	## --- Around LOOK stick (BR): combat cluster (outside pad + padding) ---
+	## FIRE: large, left of look stick (between sticks / right-thumb reach).
+	_place_btn_br(_btn_fire, orbit + 6.0, sz * 0.40)
+	## RELOAD: large, above look stick (pad stays clear underneath).
+	_place_btn_br(_btn_reload, sz * 0.20, orbit + 6.0)
+	## MELEE: left of look stick, lower (outside pad).
+	_place_btn_br(_btn_melee, orbit + 6.0, 12.0)
+	## DASH: above-left corner outside both axes (clear of stick disc).
+	_place_btn_br(_btn_dash, orbit + 6.0, orbit + 6.0)
+
+	## --- Around MOVE stick / between sticks: jump + consumables ---
+	## JUMP: right of move stick, mid-height (outside pad).
+	_place_btn_bl(_btn_jump, orbit + 6.0, sz * 0.36)
+	## Consumables: row above move stick / toward center (clear of both pads).
+	var cons_y := orbit + 8.0
+	var cons_x0 := sz * 0.35
+	var cw := CONSUMABLE.x + gap
+	_place_btn_bl(_btn_hp, cons_x0, cons_y)
+	_place_btn_bl(_btn_nrg, cons_x0 + cw, cons_y)
+	_place_btn_bl(_btn_ammo, cons_x0 + cw * 2.0, cons_y)
+	_place_btn_bl(_btn_alc, cons_x0 + cw * 3.0, cons_y)
 
 func _make_stick_base(p_name: String) -> Panel:
 	var base := Panel.new()
@@ -570,7 +624,10 @@ func _make_action_button(label: String, min_size: Vector2, emphasize: bool) -> B
 	b.add_theme_stylebox_override("pressed", pressed)
 	b.add_theme_stylebox_override("hover", hover)
 	b.add_theme_stylebox_override("focus", normal)
-	b.add_theme_font_size_override("font_size", 17 if emphasize else 12)
+	var fs := 12
+	if emphasize:
+		fs = 22 if min_size.y >= 68.0 else 15
+	b.add_theme_font_size_override("font_size", fs)
 	return b
 
 func _wire_action_button(btn: Button, action: String) -> void:

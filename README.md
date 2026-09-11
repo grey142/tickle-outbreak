@@ -51,22 +51,20 @@ On Android/iOS, or when a touchscreen is available, missions show an on-screen *
 [Olivia face panel]  [==== Health bar (top) ====]  [ammo/mission…]
                            [==== Stamina (secondary) ==]
 
-                                           | FIRE  |
-                                           | MELEE |  ← right-edge actions
-                                           | DASH  |     (above look stick)
-                                           | RELOAD|
-                                           | JUMP  |
-                                           | HP…ALC|
+   [HP][NRG][AMMO][ALC]                 [DASH]
+        [JUMP]                   [FIRE★]      [RELOAD★]
+                                 [MELEE]
 [  MOVE stick  ]                           [  LOOK stick  ]
-  (~BL quarter)                              (~BR quarter)
+  (~BL quarter)     ← actions orbit sticks →   (~BR quarter)
 ```
 
 | Control | Behavior |
 |---------|----------|
 | Bottom-left **move stick** | Large virtual joystick (~¼ of bottom). Drag for analog move (`set_touch_move`, deadzone ~0.13); release centers |
 | Bottom-right **look stick** | Same size family. Rate-based look each frame (`apply_touch_look` × sensitivity × delta); release centers |
-| **FIRE** / **MELEE** / **DASH** / **RELOAD** / **JUMP** | Right-edge strip **above** the look stick (joysticks stay large) |
-| HP / NRG / AMMO / ALC | Consumables stacked under utilities on the right strip |
+| **FIRE** / **RELOAD** (large) | Orbit **outside** the look stick (FIRE above-left, RELOAD above); noticeably bigger than other actions |
+| **MELEE** / **DASH** | Also around the look stick (MELEE left of pad, DASH upper-left nest) |
+| **JUMP** + HP / NRG / AMMO / ALC | Around/above the move stick and between sticks; stick pads stay clear for thumbs |
 | Top health (+ stamina) | Primary bars; leave room for face panel |
 | Top-left **Olivia face** panel | Calm face at 0 ticklers; 1–5 intensity; tired/tears when stamina depleted |
 
