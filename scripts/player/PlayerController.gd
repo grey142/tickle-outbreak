@@ -34,6 +34,7 @@ var touch_firing: bool = false
 
 var _gun: Dictionary = {}
 var _melee: Dictionary = {}
+var _outfit_billboard: Sprite3D
 
 func _ready() -> void:
 	add_to_group("player")
@@ -45,7 +46,41 @@ func _ready() -> void:
 		mouse_captured = false
 	_apply_stats_from_state()
 	_equip_from_state()
+	_ensure_outfit_billboard()
+	if not GameState.equipment_changed.is_connected(_on_equipment_changed):
+		GameState.equipment_changed.connect(_on_equipment_changed)
 	EventBus.hud_refresh.emit()
+
+func _on_equipment_changed() -> void:
+	_refresh_outfit_billboard()
+
+func _ensure_outfit_billboard() -> void:
+	## World-space peek billboard slightly behind/left of the FPS capsule.
+	if _outfit_billboard != null and is_instance_valid(_outfit_billboard):
+		_refresh_outfit_billboard()
+		return
+	_outfit_billboard = Sprite3D.new()
+	_outfit_billboard.name = "OutfitBillboard"
+	_outfit_billboard.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_outfit_billboard.shaded = false
+	_outfit_billboard.transparent = true
+	_outfit_billboard.double_sided = true
+	_outfit_billboard.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	_outfit_billboard.position = Vector3(-1.15, 1.0, 0.35)
+	_outfit_billboard.pixel_size = 0.0032
+	_outfit_billboard.modulate = Color(1, 1, 1, 0.92)
+	add_child(_outfit_billboard)
+	_refresh_outfit_billboard()
+
+func _refresh_outfit_billboard() -> void:
+	if _outfit_billboard == null or not is_instance_valid(_outfit_billboard):
+		return
+	var tex := DataManager.get_armor_texture(GameState.equipped_armor)
+	_outfit_billboard.texture = tex
+	if tex != null:
+		var tex_h := float(tex.get_height())
+		if tex_h > 0.0:
+			_outfit_billboard.pixel_size = 1.85 / tex_h
 
 func set_mobile_controls_active(active: bool) -> void:
 	mobile_controls_active = active

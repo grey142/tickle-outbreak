@@ -13,13 +13,71 @@ extends Control
 @onready var start_btn: Button = $Margin/VBox/StartMission
 @onready var status_label: Label = $Margin/VBox/Status
 
+var _outfit_portrait: TextureRect
+var _outfit_caption: Label
+
 func _ready() -> void:
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 	start_btn.pressed.connect(_on_start)
 	GameState.coins_changed.connect(func(_c): _refresh_header())
+	GameState.equipment_changed.connect(_on_equipment_changed)
+	_ensure_outfit_preview()
 	_rebuild_all()
 	_refresh_header()
 	_refresh_loadout()
+	_refresh_outfit_portrait()
+
+func _ensure_outfit_preview() -> void:
+	## Large Olivia Grace outfit portrait under the top bar (updates on equip).
+	if has_node("Margin/VBox/OutfitPreview"):
+		var existing := $Margin/VBox/OutfitPreview
+		_outfit_portrait = existing.get_node("Portrait") as TextureRect
+		_outfit_caption = existing.get_node("Caption") as Label
+		return
+	var row := HBoxContainer.new()
+	row.name = "OutfitPreview"
+	row.custom_minimum_size = Vector2(0, 180)
+	var vbox := $Margin/VBox
+	vbox.add_child(row)
+	vbox.move_child(row, 1)  # after TopBar
+	_outfit_portrait = TextureRect.new()
+	_outfit_portrait.name = "Portrait"
+	_outfit_portrait.custom_minimum_size = Vector2(140, 170)
+	_outfit_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_outfit_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_outfit_portrait.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(_outfit_portrait)
+	var info := VBoxContainer.new()
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(info)
+	var title := Label.new()
+	title.text = "Survivor: Olivia Grace"
+	title.add_theme_font_size_override("font_size", 20)
+	info.add_child(title)
+	_outfit_caption = Label.new()
+	_outfit_caption.name = "Caption"
+	_outfit_caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	info.add_child(_outfit_caption)
+	var hint := Label.new()
+	hint.text = "Equip armor in the Armor tab — portrait swaps to the outfit sprite."
+	hint.add_theme_font_size_override("font_size", 12)
+	hint.modulate = Color(0.75, 0.8, 0.9)
+	info.add_child(hint)
+
+func _on_equipment_changed() -> void:
+	_refresh_outfit_portrait()
+	_refresh_loadout()
+
+func _refresh_outfit_portrait() -> void:
+	if _outfit_portrait == null:
+		return
+	var tex := DataManager.get_armor_texture(GameState.equipped_armor)
+	_outfit_portrait.texture = tex
+	var a := DataManager.get_armor(GameState.equipped_armor)
+	if _outfit_caption:
+		_outfit_caption.text = "Equipped: %s — +%s HP, +%s ammo\n%s" % [
+			a.get("name", "?"), a.get("health_bonus", 0), a.get("ammo_bonus", 0), a.get("description", "")
+		]
 
 func _refresh_header() -> void:
 	coins_label.text = "Coins: %d" % GameState.coins
@@ -81,7 +139,7 @@ func _add_gun_row(g: Dictionary) -> void:
 		eq.text = "Equipped" if GameState.equipped_gun == id else "Equip"
 		eq.disabled = GameState.equipped_gun == id
 		eq.pressed.connect(func():
-			GameState.equipped_gun = id
+			GameState.equip_gun(id)
 			status_label.text = "Equipped %s" % g.get("name")
 			_rebuild_all()
 			_refresh_loadout()
@@ -94,7 +152,7 @@ func _buy_gun(id: String, cost: int) -> void:
 		status_label.text = "Not enough coins."
 		return
 	GameState.own_gun(id)
-	GameState.equipped_gun = id
+	GameState.equip_gun(id)
 	status_label.text = "Purchased gun."
 	_rebuild_all()
 	_refresh_loadout()
@@ -114,7 +172,7 @@ func _add_melee_row(m: Dictionary) -> void:
 				status_label.text = "Not enough coins."
 				return
 			GameState.own_melee(id)
-			GameState.equipped_melee = id
+			GameState.equip_melee(id)
 			_rebuild_all()
 			_refresh_loadout()
 		)
@@ -124,7 +182,7 @@ func _add_melee_row(m: Dictionary) -> void:
 		eq.text = "Equipped" if GameState.equipped_melee == id else "Equip"
 		eq.disabled = GameState.equipped_melee == id
 		eq.pressed.connect(func():
-			GameState.equipped_melee = id
+			GameState.equip_melee(id)
 			_rebuild_all()
 			_refresh_loadout()
 		)
@@ -134,8 +192,17 @@ func _add_melee_row(m: Dictionary) -> void:
 func _add_armor_row(a: Dictionary) -> void:
 	var id := String(a.get("id", ""))
 	var row := HBoxContainer.new()
+	row.custom_minimum_size = Vector2(0, 72)
+	# Outfit thumbnail preview
+	var thumb := TextureRect.new()
+	thumb.custom_minimum_size = Vector2(56, 68)
+	thumb.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	thumb.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	thumb.texture = DataManager.get_armor_texture(id)
+	row.add_child(thumb)
 	var lbl := Label.new()
 	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	lbl.text = "%s — +%s HP, +%s ammo — %s" % [a.get("name"), a.get("health_bonus"), a.get("ammo_bonus"), a.get("description")]
 	row.add_child(lbl)
 	if id not in GameState.owned_armor:
@@ -146,9 +213,11 @@ func _add_armor_row(a: Dictionary) -> void:
 				status_label.text = "Not enough coins."
 				return
 			GameState.own_armor(id)
-			GameState.equipped_armor = id
+			GameState.equip_armor(id)
+			status_label.text = "Purchased & equipped %s" % a.get("name")
 			_rebuild_all()
 			_refresh_loadout()
+			_refresh_outfit_portrait()
 		)
 		row.add_child(buy)
 	else:
@@ -156,9 +225,11 @@ func _add_armor_row(a: Dictionary) -> void:
 		eq.text = "Equipped" if GameState.equipped_armor == id else "Equip"
 		eq.disabled = GameState.equipped_armor == id
 		eq.pressed.connect(func():
-			GameState.equipped_armor = id
+			GameState.equip_armor(id)
+			status_label.text = "Equipped %s" % a.get("name")
 			_rebuild_all()
 			_refresh_loadout()
+			_refresh_outfit_portrait()
 		)
 		row.add_child(eq)
 	armor_list.add_child(row)

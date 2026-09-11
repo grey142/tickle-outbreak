@@ -78,3 +78,16 @@ func upgrade_cost(upgrade_id: String, current_level: int) -> int:
 			var scale := float(u.get("cost_scale", 1.5))
 			return int(round(base * pow(scale, current_level)))
 	return 999999
+
+func get_armor_sprite_path(id: String) -> String:
+	var a := get_armor(id)
+	return String(a.get("sprite", ""))
+
+func get_armor_texture(id: String) -> Texture2D:
+	var path := get_armor_sprite_path(id)
+	if path.is_empty():
+		return null
+	if ResourceLoader.exists(path):
+		return load(path) as Texture2D
+	push_warning("Armor sprite missing: %s" % path)
+	return null

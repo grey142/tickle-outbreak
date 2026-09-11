@@ -109,6 +109,24 @@ func own_armor(id: String) -> void:
 		owned_armor.append(id)
 	equipment_changed.emit()
 
+func equip_armor(id: String) -> void:
+	if equipped_armor == id:
+		return
+	equipped_armor = id
+	equipment_changed.emit()
+
+func equip_gun(id: String) -> void:
+	if equipped_gun == id:
+		return
+	equipped_gun = id
+	equipment_changed.emit()
+
+func equip_melee(id: String) -> void:
+	if equipped_melee == id:
+		return
+	equipped_melee = id
+	equipment_changed.emit()
+
 func buy_consumable(id: String) -> void:
 	inventory_consumables[id] = int(inventory_consumables.get(id, 0)) + 1
 

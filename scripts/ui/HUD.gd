@@ -14,16 +14,74 @@ class_name HUD
 
 var player: PlayerController
 var _mobile_hints: bool = false
+var _survivor_portrait: TextureRect
+var _survivor_caption: Label
 
 const CINEMATIC_GAP := 150.0  # leave room for top-left tickle square
+const PORTRAIT_W := 96.0
+const PORTRAIT_H := 118.0
 
 func _ready() -> void:
 	EventBus.hud_refresh.connect(_refresh)
 	EventBus.mission_progress.connect(_on_progress)
 	GameState.coins_changed.connect(func(_c): _refresh())
+	GameState.equipment_changed.connect(_update_survivor_portrait)
+	_ensure_survivor_portrait()
+	_update_survivor_portrait()
+
+func _ensure_survivor_portrait() -> void:
+	if root == null:
+		return
+	if root.has_node("SurvivorPortrait"):
+		_survivor_portrait = root.get_node("SurvivorPortrait") as TextureRect
+		_survivor_caption = root.get_node_or_null("SurvivorCaption") as Label
+		return
+	_survivor_portrait = TextureRect.new()
+	_survivor_portrait.name = "SurvivorPortrait"
+	_survivor_portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_survivor_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_survivor_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_survivor_portrait.custom_minimum_size = Vector2(PORTRAIT_W, PORTRAIT_H)
+	# Top-right corner (away from tickle cinematic top-left)
+	_survivor_portrait.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_survivor_portrait.anchor_left = 1.0
+	_survivor_portrait.anchor_right = 1.0
+	_survivor_portrait.anchor_top = 0.0
+	_survivor_portrait.anchor_bottom = 0.0
+	_survivor_portrait.offset_left = -12.0 - PORTRAIT_W
+	_survivor_portrait.offset_right = -12.0
+	_survivor_portrait.offset_top = 10.0
+	_survivor_portrait.offset_bottom = 10.0 + PORTRAIT_H
+	root.add_child(_survivor_portrait)
+	_survivor_caption = Label.new()
+	_survivor_caption.name = "SurvivorCaption"
+	_survivor_caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_survivor_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_survivor_caption.add_theme_font_size_override("font_size", 11)
+	_survivor_caption.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_survivor_caption.anchor_left = 1.0
+	_survivor_caption.anchor_right = 1.0
+	_survivor_caption.anchor_top = 0.0
+	_survivor_caption.anchor_bottom = 0.0
+	_survivor_caption.offset_left = -12.0 - PORTRAIT_W - 40.0
+	_survivor_caption.offset_right = -12.0
+	_survivor_caption.offset_top = 10.0 + PORTRAIT_H + 2.0
+	_survivor_caption.offset_bottom = 10.0 + PORTRAIT_H + 36.0
+	root.add_child(_survivor_caption)
+
+func _update_survivor_portrait() -> void:
+	if _survivor_portrait == null:
+		_ensure_survivor_portrait()
+	if _survivor_portrait == null:
+		return
+	_survivor_portrait.texture = DataManager.get_armor_texture(GameState.equipped_armor)
+	var a := DataManager.get_armor(GameState.equipped_armor)
+	if _survivor_caption:
+		_survivor_caption.text = "Olivia — %s" % String(a.get("name", "?"))
 
 func bind_player(p: PlayerController) -> void:
 	player = p
+	_update_survivor_portrait()
 	_refresh()
 
 func set_mobile_mode(active: bool) -> void:
@@ -45,7 +103,7 @@ func _apply_layout(mobile: bool) -> void:
 		vbox.anchor_bottom = 0.0
 		vbox.offset_left = CINEMATIC_GAP
 		vbox.offset_top = 8.0
-		vbox.offset_right = -12.0
+		vbox.offset_right = -12.0 - PORTRAIT_W - 8.0  # leave room for outfit portrait
 		vbox.offset_bottom = 120.0
 		vbox.grow_horizontal = Control.GROW_DIRECTION_BOTH
 		health_bar.custom_minimum_size = Vector2(0, 22)
