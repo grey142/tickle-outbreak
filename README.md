@@ -13,7 +13,7 @@ First-person **tickle-zombie survival FPS** vertical slice for **Godot 4.3+**.
 - Browsers often require a **user gesture** before audio can play — tap/click the game once if sound is muted.
 - This Web build uses Godot’s **no-threads** export (no SharedArrayBuffer / COOP-COEP headers), so it works on stock GitHub Pages.
 
-Tongue-in-cheek tone; zombies use random billboard sprite variants; survivor **Olivia Grace** has outfit sprites per armor (hub shop preview) and **face reaction** sprites when tickled (`assets/survivor/faces/`); while tickled, a strong pink full-screen flash + audible giggle/laugh SFX pulse once per second; missions layer apocalyptic city + Dead Island–scary zombie ambience under the SFX bus. Simple FPS arms remain placeholders. Not pornographic — soft feet/stomach lore appears only in item descriptions.
+Tongue-in-cheek tone; zombies use random billboard sprite variants; survivor **Olivia Grace** has outfit sprites per armor (hub shop preview) and **face reaction** sprites when tickled (`assets/survivor/faces/`); while tickled, a strong pink full-screen flash + audible giggle/laugh SFX pulse once per second; missions layer apocalyptic city + Dead Island–scary zombie ambience under the SFX bus. On tickle-infection defeat (not mission clear), a random full-screen swarm game-over scene from `assets/gameover/` is shown behind the fail panel. Simple FPS arms remain placeholders. Not pornographic — soft feet/stomach lore appears only in item descriptions.
 
 ## Open & run (Godot editor)
 
@@ -88,7 +88,7 @@ Desktop keyboard/mouse keep working when the touch overlay is hidden.
 1. **Main Menu** → New Run (starts with 100 coins for shop testing), **Gallery / Compendium**, or **CHEATS**.
 2. **Hub** — **Missions** tab to select/replay unlocked missions for coin farming; buy/equip guns, melee, armor; upgrades; consumables (bullets: pack of **25** for **5** coins).
 3. **Deploy** → city-block mission arena. Kill quota scales with the **selected** mission number. Meta (coins/gear/upgrades) is kept on replay.
-4. Clear → hub unlocks the next frontier mission (`highest_mission_unlocked`); replaying an older mission does not lock you out. Health 0 → **Tickle Infected** game over (retry or hub).
+4. Clear → hub unlocks the next frontier mission (`highest_mission_unlocked`); replaying an older mission does not lock you out. Health 0 → **Tickle Infected** game over with a random defeat swarm scene (retry or hub; mission clear skips that art).
 5. **Gallery** — zombie compendium (stats + 3 sprite variants) and tickle-scene mockups; unlocks when campaign frontier reaches each type’s `unlock_mission`.
 
 ## Cheats

@@ -1,0 +1,8 @@
+{
+  "description": "Random defeat swarm art shown on tickle-infection / player-died game over (not mission clear).",
+  "scenes": [
+    "res://assets/gameover/gameover_01.png",
+    "res://assets/gameover/gameover_02.png",
+    "res://assets/gameover/gameover_03.png"
+  ]
+}
