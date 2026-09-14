@@ -3,6 +3,8 @@
   "scenes": [
     "res://assets/gameover/gameover_01.png",
     "res://assets/gameover/gameover_02.png",
-    "res://assets/gameover/gameover_03.png"
+    "res://assets/gameover/gameover_03.png",
+    "res://assets/gameover/gameover_04_tendril.png",
+    "res://assets/gameover/gameover_05_volatile.png"
   ]
 }
